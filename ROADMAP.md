@@ -43,25 +43,25 @@ _Think and communicate like an enterprise architect: frameworks, governance, and
 
 ### Phase-02 — Distributed Systems Deep Dive  _( Weeks 7-10 )_
 _Master the theory and practice that underpins every scalable data platform._
-  - [ ] Phase-02/01 — Consensus and Coordination  →  generates `Consensus_and_Coordination.md`
-  - [ ] Phase-02/02 — Replication and Consistency  →  generates `Replication_and_Consistency.md`
-  - [ ] Phase-02/03 — Partitioning and Sharding  →  generates `Partitioning_and_Sharding.md`
-  - [ ] Phase-02/04 — CAP and PACELC  →  generates `CAP_and_PACELC.md`
-  - [ ] Phase-02/05 — Distributed Transactions  →  generates `Distributed_Transactions.md`
-  - [ ] Phase-02/06 — Time, Clocks and Ordering  →  generates `Time_Clocks_and_Ordering.md`
-  - [ ] Phase-02/07 — Fault Tolerance and Resilience  →  generates `Fault_Tolerance_and_Resilience.md`
-  - [ ] Phase-02/08 — Distributed Systems Case Studies  →  generates `Distributed_Systems_Case_Studies.md`
+  - [✅] Phase-02/01 — Consensus and Coordination  →  generates `Consensus_and_Coordination.md`
+  - [✅] Phase-02/02 — Replication and Consistency  →  generates `Replication_and_Consistency.md`
+  - [✅] Phase-02/03 — Partitioning and Sharding  →  generates `Partitioning_and_Sharding.md`
+  - [✅] Phase-02/04 — CAP and PACELC  →  generates `CAP_and_PACELC.md`
+  - [✅] Phase-02/05 — Distributed Transactions  →  generates `Distributed_Transactions.md`
+  - [✅] Phase-02/06 — Time, Clocks and Ordering  →  generates `Time_Clocks_and_Ordering.md`
+  - [✅] Phase-02/07 — Fault Tolerance and Resilience  →  generates `Fault_Tolerance_and_Resilience.md`
+  - [✅] Phase-02/08 — Distributed Systems Case Studies  →  generates `Distributed_Systems_Case_Studies.md`
 
 ### Phase-03 — Cloud & Azure Architecture  _( Weeks 11-14 )_
 _Design secure, scalable cloud foundations with Azure as the primary platform._
-  - [ ] Phase-03/01 — Cloud Architecture Fundamentals  →  generates `Cloud_Architecture_Fundamentals.md`
-  - [ ] Phase-03/02 — Azure Core Architecture  →  generates `Azure_Core_Architecture.md`
-  - [ ] Phase-03/03 — Azure Landing Zones  →  generates `Azure_Landing_Zones.md`
-  - [ ] Phase-03/04 — Azure Networking  →  generates `Azure_Networking.md`
-  - [ ] Phase-03/05 — Azure Compute and Containers  →  generates `Azure_Compute_and_Containers.md`
-  - [ ] Phase-03/06 — Azure Storage Services  →  generates `Azure_Storage_Services.md`
-  - [ ] Phase-03/07 — Azure Well-Architected Framework  →  generates `Well_Architected_Framework.md`
-  - [ ] Phase-03/08 — Multi-Cloud and Hybrid Architecture  →  generates `Multi_Cloud_and_Hybrid.md`
+  - [✅] Phase-03/01 — Cloud Architecture Fundamentals  →  generates `Cloud_Architecture_Fundamentals.md`
+  - [✅] Phase-03/02 — Azure Core Architecture  →  generates `Azure_Core_Architecture.md`
+  - [✅] Phase-03/03 — Azure Landing Zones  →  generates `Azure_Landing_Zones.md`
+  - [✅] Phase-03/04 — Azure Networking  →  generates `Azure_Networking.md`
+  - [✅] Phase-03/05 — Azure Compute and Containers  →  generates `Azure_Compute_and_Containers.md`
+  - [✅] Phase-03/06 — Azure Storage Services  →  generates `Azure_Storage_Services.md`
+  - [✅] Phase-03/07 — Azure Well-Architected Framework  →  generates `Well_Architected_Framework.md`
+  - [✅] Phase-03/08 — Multi-Cloud and Hybrid Architecture  →  generates `Multi_Cloud_and_Hybrid.md`
 
 ### Phase-04 — Storage Systems & Table Formats  _( Weeks 15-17 )_
 _Understand file formats and open table formats that define the lakehouse._
