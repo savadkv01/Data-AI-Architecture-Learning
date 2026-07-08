@@ -2,7 +2,7 @@
 
 > Part of the **Enterprise Data & AI Architecture Handbook** · Phase-00 — Foundations & Prerequisites · Chapter 02.
 > Estimated study time: **60 min reading + ~4h labs**.
-> **Prerequisite:** read [Introduction and How To Use This Handbook](Introduction.md) first.
+> **Prerequisite:** read [Introduction and How To Use This Handbook](01_Introduction.md) first.
 
 ---
 
@@ -41,7 +41,7 @@ Executives do not fund "algorithms." They fund *predictable unit economics* and 
 - **Correctness and trust.** A single floating-point drift in a financial close, or a UTF-8 mojibake in a customer's name, erodes trust that took years to build and can trigger regulatory findings. Encoding and numeric precision are *compliance* concerns.
 - **Talent leverage.** Teams that reason from fundamentals ship fewer rewrites. The most expensive line item in most platforms is the *second* implementation after the first one failed to scale.
 
-For an experienced Azure data engineer targeting Staff/Principal/Architect roles (see the career ladder in [Introduction](Introduction.md)), the ability to say *"this will cost X because it is $O(n \log n)$ with a shuffle across the 10 GbE fabric"* — before writing code — is precisely the judgment that gates promotion.
+For an experienced Azure data engineer targeting Staff/Principal/Architect roles (see the career ladder in [Introduction](01_Introduction.md)), the ability to say *"this will cost X because it is $O(n \log n)$ with a shuffle across the 10 GbE fabric"* — before writing code — is precisely the judgment that gates promotion.
 
 ---
 
@@ -343,7 +343,7 @@ Observability turns "it's slow" into "operator X is memory-bound because the joi
 
 - **Type and precision standards.** Mandate `decimal(p,s)` (not `double`) for currency; standardize timestamp encoding (UTC, epoch-micros) and text (UTF-8, NFC). Enforce via table constraints and CI schema checks (Great Expectations / Delta constraints).
 - **Serialization contracts.** Governed schema registries (Avro/Protobuf) with compatibility rules (backward/forward) prevent breaking downstream consumers — a data-contract concern.
-- **Cost governance.** Require a complexity/cost estimate in the design template for any job over a data-volume threshold (ties to the ADR practice from [Introduction](Introduction.md)).
+- **Cost governance.** Require a complexity/cost estimate in the design template for any job over a data-volume threshold (ties to the ADR practice from [Introduction](01_Introduction.md)).
 - **Data-quality gates.** Encoding validation and numeric-tolerance checks as pipeline quality gates, versioned and audited.
 
 Governance operationalizes the fundamentals so correctness and cost are *enforced*, not hoped for.
@@ -455,7 +455,7 @@ For an Azure-primary enterprise data/AI platform:
 2. **Enable Photon** (Databricks) for CPU-bound analytics; vectorization is the cheapest 2–4× you will get.
 3. **Mandate a data-contract + schema-registry** (Avro/Protobuf) for all inter-service streams to control serialization evolution.
 4. **Encode standards in platform templates** (types, timestamps, text normalization) so teams inherit correctness.
-5. **Require cost/complexity estimates** in design reviews above a data-volume threshold; store them as ADRs (see [Introduction](Introduction.md)).
+5. **Require cost/complexity estimates** in design reviews above a data-volume threshold; store them as ADRs (see [Introduction](01_Introduction.md)).
 6. **Instrument shuffle/spill/skew** dashboards centrally; treat rising super-linear cost as an incident class.
 7. **Use decimal for financial data by policy**, with CI enforcement.
 
@@ -697,7 +697,7 @@ Every arrow in this flow is a decision governed by the fundamentals in this chap
 
 ## Hands-on Labs
 
-> Target ~4 hours. Use a Databricks Community/trial workspace or local Spark + DuckDB. Save outputs as evidence (see the evidence-log practice in [Introduction](Introduction.md)).
+> Target ~4 hours. Use a Databricks Community/trial workspace or local Spark + DuckDB. Save outputs as evidence (see the evidence-log practice in [Introduction](01_Introduction.md)).
 
 **Lab A — Complexity you can feel (45 min).**
 1. Generate 10M rows. Deduplicate two ways: (a) self-join on key with inequality; (b) `ROW_NUMBER()` window. Compare runtimes and `EXPLAIN` plans. Record the crossover where (a) becomes intractable.
@@ -739,7 +739,7 @@ Every arrow in this flow is a decision governed by the fundamentals in this chap
 
 ## Capstone Integration
 
-These fundamentals are load-bearing for the Phase-20 capstone (see [Introduction](Introduction.md)):
+These fundamentals are load-bearing for the Phase-20 capstone (see [Introduction](01_Introduction.md)):
 
 - **Storage & lakehouse design** rests on locality and columnar encoding ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md)).
 - **Distributed processing** rests on complexity, shuffle, and computation models ([Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)).
@@ -828,4 +828,4 @@ In the capstone you will defend a platform whose cost, latency, and correctness 
 - Jay Kreps — *The Log: What every software engineer should know about real-time data's unifying abstraction*.
 - Abadi et al. — *The Design and Implementation of Modern Column-Oriented Database Systems*.
 - Apache Beam — *Streaming 101/102* (Tyler Akidau).
-- Handbook cross-references: [Introduction](Introduction.md), [Operating Systems for Data Engineers](03_Operating_Systems_for_Data_Engineers.prompt.md), [Networking Fundamentals](04_Networking_Fundamentals.prompt.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Data Structures and Algorithms for Data Engineering](07_Data_Structures_and_Algorithms_for_Data_Engineering.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).
+- Handbook cross-references: [Introduction](01_Introduction.md), [Operating Systems for Data Engineers](03_Operating_Systems_for_Data_Engineers.prompt.md), [Networking Fundamentals](04_Networking_Fundamentals.prompt.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Data Structures and Algorithms for Data Engineering](07_Data_Structures_and_Algorithms_for_Data_Engineering.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).

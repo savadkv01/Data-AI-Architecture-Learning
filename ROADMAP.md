@@ -22,24 +22,24 @@ complete both the reading and the hands-on labs. Respect prerequisites in
 
 ### Phase-00 — Foundations & Prerequisites  _( Weeks 1-3 )_
 _Rebuild the computer-science and systems bedrock every architect relies on._
-  - [ ] Phase-00/01 — Introduction and How To Use This Handbook  →  generates `Introduction.md`
-  - [ ] Phase-00/02 — Computer Science Fundamentals  →  generates `Computer_Science_Fundamentals.md`
-  - [ ] Phase-00/03 — Operating Systems for Data Engineers  →  generates `Operating_Systems.md`
-  - [ ] Phase-00/04 — Networking Fundamentals  →  generates `Networking_Fundamentals.md`
-  - [ ] Phase-00/05 — Storage Systems Fundamentals  →  generates `Storage_Systems_Fundamentals.md`
-  - [ ] Phase-00/06 — Concurrency and Parallelism  →  generates `Concurrency_and_Parallelism.md`
-  - [ ] Phase-00/07 — Data Structures and Algorithms for Data Engineering  →  generates `Data_Structures_and_Algorithms.md`
-  - [ ] Phase-00/08 — Distributed Systems Primer  →  generates `Distributed_Systems_Primer.md`
+  - [✅] Phase-00/01 — Introduction and How To Use This Handbook  →  generates `Introduction.md`
+  - [✅] Phase-00/02 — Computer Science Fundamentals  →  generates `Computer_Science_Fundamentals.md`
+  - [✅] Phase-00/03 — Operating Systems for Data Engineers  →  generates `Operating_Systems.md`
+  - [✅] Phase-00/04 — Networking Fundamentals  →  generates `Networking_Fundamentals.md`
+  - [✅] Phase-00/05 — Storage Systems Fundamentals  →  generates `Storage_Systems_Fundamentals.md`
+  - [✅] Phase-00/06 — Concurrency and Parallelism  →  generates `Concurrency_and_Parallelism.md`
+  - [✅] Phase-00/07 — Data Structures and Algorithms for Data Engineering  →  generates `Data_Structures_and_Algorithms.md`
+  - [✅] Phase-00/08 — Distributed Systems Primer  →  generates `Distributed_Systems_Primer.md`
 
 ### Phase-01 — Enterprise Architecture Foundations  _( Weeks 4-6 )_
 _Think and communicate like an enterprise architect: frameworks, governance, and decisions._
-  - [ ] Phase-01/01 — Enterprise Architecture Foundations  →  generates `Enterprise_Architecture_Foundations.md`
-  - [ ] Phase-01/02 — Architecture Governance  →  generates `Architecture_Governance.md`
-  - [ ] Phase-01/03 — Architecture Decision Records  →  generates `Architecture_Decision_Records.md`
-  - [ ] Phase-01/04 — Solution Architecture Practice  →  generates `Solution_Architecture_Practice.md`
-  - [ ] Phase-01/05 — Domain Driven Design  →  generates `Domain_Driven_Design.md`
-  - [ ] Phase-01/06 — Business Capability Modeling  →  generates `Business_Capability_Modeling.md`
-  - [ ] Phase-01/07 — Technical Strategy and Roadmaps  →  generates `Technical_Strategy_and_Roadmaps.md`
+  - [✅] Phase-01/01 — Enterprise Architecture Foundations  →  generates `Enterprise_Architecture_Foundations.md`
+  - [✅] Phase-01/02 — Architecture Governance  →  generates `Architecture_Governance.md`
+  - [✅] Phase-01/03 — Architecture Decision Records  →  generates `Architecture_Decision_Records.md`
+  - [✅] Phase-01/04 — Solution Architecture Practice  →  generates `Solution_Architecture_Practice.md`
+  - [✅] Phase-01/05 — Domain Driven Design  →  generates `Domain_Driven_Design.md`
+  - [✅] Phase-01/06 — Business Capability Modeling  →  generates `Business_Capability_Modeling.md`
+  - [✅] Phase-01/07 — Technical Strategy and Roadmaps  →  generates `Technical_Strategy_and_Roadmaps.md`
 
 ### Phase-02 — Distributed Systems Deep Dive  _( Weeks 7-10 )_
 _Master the theory and practice that underpins every scalable data platform._
