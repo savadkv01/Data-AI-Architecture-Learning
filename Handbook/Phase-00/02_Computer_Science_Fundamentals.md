@@ -10,7 +10,7 @@
 
 Every expensive decision in a data or AI platform ultimately reduces to a small set of computer-science invariants: *how much work* an operation costs (time complexity), *how much memory* it touches and *where that memory lives* (the memory hierarchy), *how bytes are represented and moved* (encoding, endianness, serialization), *which computation model* the workload fits (batch, streaming, MapReduce, dataflow), and *how numbers lie* (floating-point precision). Architects who cannot reason about these primitives ship platforms that are correct in the demo and catastrophic at scale.
 
-This chapter is the load-bearing floor beneath the rest of the handbook. When [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md) explains why columnar formats crush analytics, the reason is *cache locality* and *complexity of scan-vs-seek*. When [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md) explains Spark shuffle cost, the reason is the $O(n \log n)$ sort and the network serialization boundary. When a data-quality incident surfaces `0.1 + 0.2 != 0.3` in a financial reconciliation, the reason is IEEE-754. We connect each primitive directly to Azure cost, Databricks/Spark behavior, and enterprise failure stories.
+This chapter is the load-bearing floor beneath the rest of the handbook. When [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md) explains why columnar formats crush analytics, the reason is *cache locality* and *complexity of scan-vs-seek*. When [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md) explains Spark shuffle cost, the reason is the $O(n \log n)$ sort and the network serialization boundary. When a data-quality incident surfaces `0.1 + 0.2 != 0.3` in a financial reconciliation, the reason is IEEE-754. We connect each primitive directly to Azure cost, Databricks/Spark behavior, and enterprise failure stories.
 
 The bias throughout is **Azure-primary (~60%)**, **enterprise open source (~30%)** — Spark, Delta Lake, Parquet/Arrow, Kafka, Flink — and **AWS/GCP as comparison only (~10%)**. The goal is not academic rigor for its own sake; it is *defensible judgment*. By the end you will be able to estimate the cost of a query before running it, explain why a UTF-8 misconfiguration corrupted a pipeline, choose a computation model from first principles, and defend those choices in a Staff/Principal review.
 
@@ -212,7 +212,7 @@ Storage is where the memory hierarchy meets economics. Latency and cost per laye
 | Object storage | ~10–50 ms first byte | scalable/parallel | Low | ADLS Gen2 (Blob) |
 | Archive | seconds–hours | — | Lowest | Azure Archive tier |
 
-**Design implication:** the lakehouse pattern deliberately keeps *cold* data cheap in ADLS Gen2 (locality sacrificed for cost) and pulls the *hot working set* into executor RAM/Arrow buffers (locality recovered for speed). Delta/Parquet column chunks, row-group sizing (128–256 MB), and Z-ordering are all techniques to *maximize spatial locality per object-storage GET*, minimizing the number of high-latency round-trips. See [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md) for the deep dive.
+**Design implication:** the lakehouse pattern deliberately keeps *cold* data cheap in ADLS Gen2 (locality sacrificed for cost) and pulls the *hot working set* into executor RAM/Arrow buffers (locality recovered for speed). Delta/Parquet column chunks, row-group sizing (128–256 MB), and Z-ordering are all techniques to *maximize spatial locality per object-storage GET*, minimizing the number of high-latency round-trips. See [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md) for the deep dive.
 
 ---
 
@@ -240,7 +240,7 @@ The network is the slowest, most expensive tier of the distributed memory hierar
 - **Endianness matters on the wire.** Network byte order is big-endian by convention; most CPUs (x86, ARM) are little-endian. Serialization frameworks normalize this so a Spark executor and a .NET consumer agree on integer values.
 - **Data egress cost.** In Azure, cross-region and internet egress is billed. Keeping compute co-located with ADLS Gen2 in the same region is both a *locality* and a *FinOps* decision.
 
-See [Networking Fundamentals](04_Networking_Fundamentals.prompt.md) for the full treatment.
+See [Networking Fundamentals](04_Networking_Fundamentals.md) for the full treatment.
 
 ---
 
@@ -741,10 +741,10 @@ Every arrow in this flow is a decision governed by the fundamentals in this chap
 
 These fundamentals are load-bearing for the Phase-20 capstone (see [Introduction](01_Introduction.md)):
 
-- **Storage & lakehouse design** rests on locality and columnar encoding ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md)).
-- **Distributed processing** rests on complexity, shuffle, and computation models ([Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)).
-- **Data structures for engineering** operationalize the complexity classes here ([Data Structures and Algorithms for Data Engineering](07_Data_Structures_and_Algorithms_for_Data_Engineering.prompt.md)).
-- **OS-level behavior** (paging, page cache, scheduling) is the memory hierarchy in practice ([Operating Systems for Data Engineers](03_Operating_Systems_for_Data_Engineers.prompt.md)).
+- **Storage & lakehouse design** rests on locality and columnar encoding ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md)).
+- **Distributed processing** rests on complexity, shuffle, and computation models ([Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md)).
+- **Data structures for engineering** operationalize the complexity classes here ([Data Structures and Algorithms for Data Engineering](07_Data_Structures_and_Algorithms.md)).
+- **OS-level behavior** (paging, page cache, scheduling) is the memory hierarchy in practice ([Operating Systems for Data Engineers](03_Operating_Systems.md)).
 
 In the capstone you will defend a platform whose cost, latency, and correctness properties trace directly back to the primitives in this chapter.
 
@@ -754,26 +754,41 @@ In the capstone you will defend a platform whose cost, latency, and correctness 
 
 **Engineer level**
 1. Explain Big-O and give the complexity of sort, hash join, and nested-loop join.
+   **A:** Big-O describes how an algorithm's work scales as input size grows, ignoring constants. Comparison sort is $O(n \log n)$, a hash join is $O(n+m)$ (build one side, probe the other), and a nested-loop join is $O(n \times m)$ — fine for a tiny broadcast side, catastrophic for two large tables.
 2. Why is Parquet faster than CSV for analytics?
+   **A:** Parquet is columnar and stores per-column min/max statistics, so an engine can skip entire column chunks and row groups that can't match a filter (predicate pushdown) and only decode the columns a query actually needs, whereas CSV must be parsed row-by-row with no skipping.
 3. What is UTF-8 and how does it differ from ASCII?
+   **A:** UTF-8 is a variable-length encoding of Unicode code points using 1-4 bytes per character, backward-compatible with ASCII for the first 128 code points; ASCII is a fixed 7-bit encoding that can only represent English letters, digits, and basic punctuation.
 4. Why can `0.1 + 0.2 != 0.3`?
+   **A:** IEEE-754 doubles represent most decimal fractions only approximately in binary, so 0.1 and 0.2 are each stored with tiny rounding error, and adding them produces a value that differs from the closest binary representation of 0.3 by an epsilon.
 5. Batch vs. streaming — one concrete decision criterion.
+   **A:** If the business tolerates "next morning" freshness, batch is cheaper and simpler; if the SLA requires sub-second or sub-minute reaction (fraud scoring, live dashboards), streaming is required despite its higher operational complexity.
 
 **Staff Engineer Questions**
 6. Walk through how a cost-based optimizer chooses between broadcast and sort-merge join, including where it can go wrong.
+   **A:** The optimizer estimates each side's size from table/column statistics and broadcasts the side below a configured threshold (avoiding a shuffle entirely), falling back to sort-merge (shuffle both sides, sort, merge) otherwise; it goes wrong when statistics are stale or absent and a side estimated as small is actually huge, causing a broadcast-driven executor OOM.
 7. A job spills 200 GB and costs 3×. Diagnose from first principles and propose fixes.
+   **A:** Spill means an operator's working set (a wide shuffle, sort, or aggregation) exceeded executor memory and was written to disk, so first check memory-per-core sizing and shuffle-partition count; fixes are increasing partitions to shrink per-task working sets, pre-aggregating before the wide shuffle, or moving to memory-optimized VM SKUs if the working set genuinely requires more RAM.
 8. Design a dedup for 1B events per hour with an exactly-once guarantee. Address complexity, skew, and determinism.
+   **A:** Use a deterministic idempotency key (business key + event time, not an auto-generated UUID) written through a `MERGE`/upsert against a keyed store, partition by a high-cardinality field to avoid skew, and prefer window-based `ROW_NUMBER()` dedup over self-joins since the latter is $O(n^2)$ at this scale.
 9. When would you accept `double` over `decimal`, and how would you bound the error?
+   **A:** Accept `double` for scientific/ML computations where relative error is fine and speed/memory matter; bound error with Kahan summation or by tracking an explicit tolerance band, and never use `double` for money or any value subject to exact reconciliation.
 
 **Architect Questions**
 10. Design the encoding, serialization, and numeric-type standards for a multi-region Azure data platform. Defend each choice.
+    **A:** Standardize UTF-8/NFC for all text (avoids mojibake across regions), Avro or Protobuf with a schema registry for streaming interchange (enforces compatibility across producer/consumer versions), Parquet with Delta/Iceberg for at-rest analytics (columnar pruning plus ACID), and `decimal` for any monetary or regulatory-reportable numeric field.
 11. Choose the computation model(s) for a platform serving both sub-second fraud scoring and daily finance reporting. Justify the split and reconciliation (Lambda/Kappa).
+    **A:** Run a streaming path (Kappa-style, single log of record) for the sub-second fraud path where low latency matters more than exhaustive reprocessing, and a batch path over the same immutable event log for daily finance reporting where correctness and full reprocessability matter more than latency; reconcile by treating the streaming path's output as provisional and the batch recomputation as the system of record.
 12. How do you govern complexity/cost at design time across 50 teams? What gates and artifacts?
+    **A:** Require an ADR with an explicit Big-O/data-volume justification and a cost estimate for any design touching more than one team's data, gate it through a lightweight architecture review board, and track actual versus estimated cost post-launch to calibrate future estimates.
 
 **CTO Review Questions**
 13. In business terms, why does an algorithmic choice belong in a board-level cost conversation? Quantify with an example.
+    **A:** An $O(n^2)$ join left unnoticed until 10x data growth can turn a $500/day job into a $50,000/day job overnight — the algorithmic complexity class, not the cloud invoice, is the real cost driver, and it compounds silently until data volume crosses the inflection point.
 14. What is our exposure if numeric precision or encoding is mishandled in regulated data, and how do we bound that risk?
+    **A:** Mishandled precision in financial data can cause reconciliation failures that trigger regulatory reporting errors and audit findings; bound the risk by mandating `decimal` types and UTF-8/NFC validation at every ingestion boundary via automated data-quality gates, not manual review.
 15. How portable is our platform across clouds, and what specifically (fundamentals vs. proprietary services) determines lock-in?
+    **A:** Fundamentals — Parquet, open table formats, standard SQL — are portable by construction; lock-in comes from proprietary managed services (vendor-specific streaming APIs, proprietary ML runtimes) layered on top, so portability is a deliberate architectural choice about which layer you build against, not an inherent property of "the cloud."
 
 ---
 
@@ -781,8 +796,11 @@ In the capstone you will defend a platform whose cost, latency, and correctness 
 
 (Consolidated for interview prep — see items 6–9 above, plus:)
 - Derive why comparison sort cannot beat $O(n \log n)$ and when radix/bucket sort legitimately does better.
+  **A:** A comparison sort's outcome is a decision tree with $n!$ leaves (one per permutation), and a binary decision tree needs $\log_2(n!) = O(n \log n)$ depth to distinguish them all, so no comparison-based algorithm can do better; radix/bucket sort beats this bound because they don't compare elements pairwise — they exploit known key structure (fixed-width integers, bounded ranges) to achieve $O(n)$ or $O(n \cdot k)$.
 - Explain data skew's effect on parallel speedup and three concrete mitigations (salting, AQE skew join, two-phase aggregation).
+  **A:** Skew means one partition holds disproportionately more data than its peers, so the whole stage's wall-clock time is bounded by that one straggler task regardless of how many executors are added; salting spreads a hot key across synthetic sub-keys, Spark's Adaptive Query Execution can automatically split skewed partitions at runtime, and two-phase (partial-then-final) aggregation reduces the shuffle volume for the skewed key before the final combine.
 - Contrast lineage-based recovery vs. checkpointing in terms of space/time trade-offs and determinism requirements.
+  **A:** Lineage-based recovery (Spark's RDD DAG) recomputes lost partitions from the original transformations, costing no storage but requiring deterministic, replayable transformations and potentially long recompute chains; checkpointing persists intermediate state to durable storage, trading storage cost and write latency for bounded, fast recovery independent of lineage depth or determinism.
 
 ---
 
@@ -790,7 +808,9 @@ In the capstone you will defend a platform whose cost, latency, and correctness 
 
 (See items 10–12 above, plus:)
 - Produce an ADR for standardizing on Delta + Parquet + Arrow across the enterprise, including alternatives (Iceberg, Hudi) and consequences.
+  **A:** See the ADR-0002 below this section — it standardizes on Delta Lake + Parquet + Arrow specifically for tighter native Azure Databricks integration today, while documenting Iceberg and Hudi as credible alternatives rejected only on integration-maturity grounds, not technical merit.
 - Define the data-contract governance model (schema registry, compatibility rules) that controls serialization evolution across domains.
+  **A:** Require every cross-domain event schema to be registered centrally with an enforced compatibility mode (backward or full compatibility, not "none"), reject any producer deployment that would break a registered consumer's compatibility guarantee, and version schemas explicitly rather than relying on implicit field-optionality conventions.
 
 ---
 
@@ -798,7 +818,9 @@ In the capstone you will defend a platform whose cost, latency, and correctness 
 
 (See items 13–15 above, plus:)
 - Present the FinOps case that one architectural review board pays for itself by preventing a single $50k+ complexity incident per quarter.
+  **A:** A review board costs a few senior engineer-hours per week; a single unreviewed $O(n^2)$ design that hits production at scale can cost tens of thousands of dollars in a single billing cycle before anyone notices, so preventing even one such incident per quarter covers the board's entire annual cost many times over.
 - Assess regulatory/audit risk from numeric precision and encoding, and the controls that bound it.
+  **A:** Regulators expect exact, reproducible reconciliation for financial figures; the control is mandating `decimal` arithmetic and validated UTF-8/NFC text at ingestion, enforced by automated schema and data-quality gates rather than relying on downstream manual review to catch drift.
 
 ---
 
@@ -828,4 +850,4 @@ In the capstone you will defend a platform whose cost, latency, and correctness 
 - Jay Kreps — *The Log: What every software engineer should know about real-time data's unifying abstraction*.
 - Abadi et al. — *The Design and Implementation of Modern Column-Oriented Database Systems*.
 - Apache Beam — *Streaming 101/102* (Tyler Akidau).
-- Handbook cross-references: [Introduction](01_Introduction.md), [Operating Systems for Data Engineers](03_Operating_Systems_for_Data_Engineers.prompt.md), [Networking Fundamentals](04_Networking_Fundamentals.prompt.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Data Structures and Algorithms for Data Engineering](07_Data_Structures_and_Algorithms_for_Data_Engineering.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).
+- Handbook cross-references: [Introduction](01_Introduction.md), [Operating Systems for Data Engineers](03_Operating_Systems.md), [Networking Fundamentals](04_Networking_Fundamentals.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Data Structures and Algorithms for Data Engineering](07_Data_Structures_and_Algorithms.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md).

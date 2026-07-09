@@ -1095,46 +1095,72 @@ The capstone exercise for Phase-02 should ask the reader to design a multi-regio
 ## Interview Questions
 
 1. What problem does the transactional outbox pattern solve?
+   **A:** It solves the "dual write" problem — reliably updating a database and publishing an event about that update as one atomic unit — by writing the event to an outbox table in the same local transaction as the business change, then relaying it asynchronously, so a crash between the DB write and the publish can never leave the two out of sync.
 2. Why is 2PC considered blocking?
+   **A:** If the coordinator crashes after participants have voted "yes" (prepared) but before sending the commit/abort decision, participants must hold their locks and wait indefinitely for the coordinator to recover — they cannot unilaterally decide, making the whole transaction blocked on a single coordinator's availability.
 3. When would you prefer saga orchestration over choreography?
+   **A:** Prefer orchestration when the workflow is complex enough that having one place to observe and reason about overall progress matters more than the looser coupling choreography provides — orchestration trades some decoupling for centralized visibility and easier debugging of multi-step business processes.
 4. How do idempotency keys differ from database primary keys?
+   **A:** A primary key uniquely identifies a row's identity in storage; an idempotency key uniquely identifies a *logical client request* so that a retried request (which may generate a new row if naively processed) can be recognized as a duplicate of an already-processed request and return the original result instead of creating a second side effect.
 5. What happens if a payment API times out after the provider already completed the charge?
+   **A:** The client can't tell from the timeout alone whether the charge succeeded or failed, so blindly retrying risks a double charge; the correct handling is retrying with the same idempotency key so the payment provider recognizes the duplicate request and returns the original result rather than charging twice.
 6. Why is exactly-once usually an application design property rather than a transport guarantee?
+   **A:** No transport can guarantee a message is delivered exactly once over an unreliable network (the sender can never be certain an ack wasn't just lost), so "exactly-once" in practice is achieved by combining at-least-once delivery with idempotent application-level processing — the guarantee is engineered at the application layer, not provided for free by the network.
 7. What is the difference between serializability and external consistency?
+   **A:** Serializability guarantees transactions behave as if executed in some sequential order, but that order need not match real (wall-clock) time; external consistency (as in Spanner) additionally guarantees that if transaction A commits before transaction B starts in real time, A's serialization order is also before B's — a strictly stronger, real-time-respecting guarantee.
 8. Why should a database transaction avoid synchronous calls to downstream services?
+   **A:** A transaction holds locks and resources for its entire duration, and a synchronous call to a slow or unavailable downstream service extends that duration unpredictably, risking lock contention, timeout cascades, and resource exhaustion — downstream effects belong outside the transaction boundary (e.g., via the outbox pattern) rather than inside it.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Design an order workflow that must tolerate duplicate client requests, broker redelivery, and regional failover.
+   **A:** Require an idempotency key per logical order request checked against a dedup store before processing, use the transactional outbox pattern so order-creation and event-publication are atomic even across broker redelivery, and ensure the dedup store itself is replicated with the correctness guarantee needed to survive regional failover without losing dedup state.
 2. Explain how you would prove to an incident review board that no duplicate financial side effect occurred after a retry storm.
+   **A:** Show the idempotency-key dedup store's audit log demonstrating every duplicate request was recognized and short-circuited to the original result, correlated with payment-provider logs confirming only one actual charge per logical order — proof requires end-to-end evidence, not just an assertion that idempotency keys were "in place."
 3. Compare orchestrated saga, choreography, and 2PC for a regulated entitlement workflow with strict audit requirements.
+   **A:** Orchestration gives the clearest single audit trail of the workflow's exact sequence and decisions, which regulated audit requirements typically favor; choreography is harder to audit end-to-end without strong distributed tracing; 2PC provides strict atomicity but its blocking failure mode and cross-service coupling make it a poor fit for a workflow spanning independently-owned services.
 4. Describe how you would partition outbox tables and relay workers at tens of thousands of transactions per second.
+   **A:** Partition the outbox table by a high-cardinality key (e.g., aggregate/entity ID) so relay workers can process partitions in parallel without contention, and scale relay worker count with partition count, ensuring each partition's events are still relayed in order while different partitions proceed independently.
 5. Explain how fencing tokens prevent stale writers after leadership change or lease expiry.
+   **A:** A monotonically increasing fencing token is issued with each new leadership term/lease, and the resource being written to rejects any write carrying a token older than the highest it has seen — this stops a "zombie" former leader (paused past its lease expiry) from successfully writing after a new leader has taken over, even if the zombie itself is unaware it lost leadership.
 6. State the operational signals that tell you compensation logic is insufficient or unsafe.
+   **A:** A rising rate of manual intervention tickets to fix inconsistent state after a saga failure, compensations that themselves fail without a further fallback, or discovered scenarios where a compensating action can't fully undo a step's real-world side effect (e.g., a shipped package) are all signals the compensation design has gaps.
 
 ---
 
 ## Architect Questions
 
 1. Which business invariants must remain inside one service boundary, and which can converge asynchronously?
+   **A:** Invariants that must never be violated even momentarily (an account balance never going negative) belong inside a single service's transactional boundary; invariants that are acceptable to converge eventually (an order's status label being briefly inconsistent across two read models) can be handled asynchronously via events — this boundary decision should be made explicitly per invariant, not assumed uniformly.
 2. Under what exact conditions would you approve 2PC in a modern cloud platform?
+   **A:** Approve 2PC only for a small, tightly-coupled set of participants within a single trust/availability domain (rarely justified across independently-deployed microservices or cloud regions) where the atomicity requirement is absolute and the blocking-coordinator risk is explicitly accepted and mitigated (e.g., a highly available coordinator with fast failover).
 3. How do you govern choreography so that end-to-end process logic does not disappear into event chains?
+   **A:** Require a documented process map (even for choreographed workflows) showing the full event chain and each service's role, maintained alongside the code, plus distributed tracing correlating events across the chain — without this, choreography's decoupling benefit comes at the cost of no one being able to reason about the whole process.
 4. What are the cloud-region and network-topology implications of your chosen transaction strategy?
+   **A:** A saga's local transactions can each be region-local with asynchronous cross-region event propagation, tolerating regional latency gracefully; 2PC's synchronous coordinator round-trip becomes prohibitively slow and fragile across regions, effectively confining 2PC to single-region or single-AZ topologies.
 5. How do data-platform integrations such as lineage, feature publication, or catalog updates participate without corrupting operational correctness?
+   **A:** Treat these as downstream, asynchronous consumers of the outbox/event stream rather than participants in the operational transaction itself — lineage and catalog updates should never be able to block or fail an operational write, since their consistency requirements are weaker than the operational system of record's.
 6. What is the migration path from a legacy XA or monolith transaction model to outbox-plus-saga?
+   **A:** Incrementally extract one business capability at a time behind the outbox pattern while the monolith remains authoritative for the rest, validating each extracted saga's compensation logic in production before extracting the next — a big-bang replacement of a working XA transaction model risks introducing exactly the correctness gaps the migration is meant to avoid.
 
 ---
 
 ## CTO Review Questions
 
 1. Which failures in this design create customer-visible inconsistency, and how quickly can the organization detect and repair them?
+   **A:** Saga compensation failures and outbox relay delays are the primary sources of customer-visible inconsistency; detection speed depends on whether compensation failure and relay lag are actively monitored and alerted on, versus discovered only from customer complaints.
 2. What is the cost premium of strong coordination versus eventual convergence for this product line?
+   **A:** Strong coordination (2PC, synchronous cross-service calls) costs in latency, availability (blocking on the slowest participant), and engineering complexity to operate safely; this premium should be quantified against the business cost of the alternative's eventual-consistency window before defaulting to either approach.
 3. Which workflows are safety-critical enough to justify stricter consistency or externally consistent data platforms?
+   **A:** Workflows with hard financial or regulatory invariants (payment processing, regulatory reporting) typically justify the premium; workflows tolerant of brief inconsistency (order status display, inventory estimates) do not — this classification should be explicit and reviewed, not assumed uniformly strict.
 4. How much of the current architecture depends on manual compensation, and is that operationally scalable?
+   **A:** Manual compensation (a human fixing inconsistent state after a saga failure) does not scale with transaction volume; if manual intervention rate is growing with traffic, that's a signal the automated compensation logic has design gaps that need addressing before volume growth makes the manual burden unsustainable.
 5. What governance rule prevents teams from reintroducing dual writes six months after go-live?
+   **A:** A architecture-review checklist item and, ideally, an automated lint/CI check flagging any code path that writes to a database and calls an external service without going through the approved outbox/event mechanism — without an enforced rule, dual-write anti-patterns tend to creep back in under delivery pressure.
 6. If a regulator asks for a timeline of one disputed transaction, can the platform reconstruct it deterministically?
+   **A:** This requires the outbox/event log and saga state transitions to be durably retained and queryable per transaction ID — if reconstruction requires piecing together application logs from multiple services manually, that's a compliance and auditability gap that should be closed before it's tested by an actual regulatory inquiry.
 
 ---
 

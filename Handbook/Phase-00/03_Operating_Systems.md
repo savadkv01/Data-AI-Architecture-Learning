@@ -89,7 +89,7 @@ Without these mechanisms, every Spark executor would need to manage physical mem
 - **It cannot make an application memory-safe.** The OS isolates *processes*; a single JVM's own heap fragmentation or a Python process's reference cycles are the application's problem.
 - **It cannot prevent OOM entirely, only govern it.** If aggregate demand exceeds physical RAM, *something* gets killed or swapped; the kernel's OOM-killer heuristics are not always what you'd choose (hence `oom_score_adj` tuning).
 - **It cannot make slow storage fast.** The page cache accelerates *repeated* reads; a genuinely large, cold, one-pass scan against ADLS Gen2 still pays object-storage latency once per byte.
-- **It cannot fix bad application-level parallelism.** Scheduling 200 threads fairly does not help if 195 of them are blocked on a single lock (see [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md)).
+- **It cannot fix bad application-level parallelism.** Scheduling 200 threads fairly does not help if 195 of them are blocked on a single lock (see [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md)).
 - **It cannot guarantee determinism under contention.** cgroup CPU throttling and NUMA placement are best-effort; tail latency (p99) under a noisy neighbor is fundamentally harder to bound than throughput.
 - **It cannot replace capacity planning.** cgroups and schedulers arbitrate what exists; they don't conjure more CPU/RAM than the VM SKU provides.
 
@@ -119,7 +119,7 @@ Linux keeps recently read/written file pages in RAM indefinitely (until reclaime
 
 ### 8.6 Filesystems: block vs. object I/O
 
-A **block device** (local NVMe, Azure Premium SSD) exposes fixed-size sectors with POSIX semantics (seek, random write-in-place, `fsync`). **Object storage** (ADLS Gen2/Blob, S3) exposes whole-object PUT/GET with eventual/strong consistency but **no in-place mutation** — every "write" replaces or appends an object. This is precisely why Delta Lake/Parquet write immutable files and rely on a transaction log rather than in-place updates: the storage layer's I/O model dictates the table format's design (cross-reference [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md)).
+A **block device** (local NVMe, Azure Premium SSD) exposes fixed-size sectors with POSIX semantics (seek, random write-in-place, `fsync`). **Object storage** (ADLS Gen2/Blob, S3) exposes whole-object PUT/GET with eventual/strong consistency but **no in-place mutation** — every "write" replaces or appends an object. This is precisely why Delta Lake/Parquet write immutable files and rely on a transaction log rather than in-place updates: the storage layer's I/O model dictates the table format's design (cross-reference [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md)).
 
 ### 8.7 cgroups, ulimits, and NUMA
 
@@ -148,7 +148,7 @@ The relevant OS architecture, top to bottom, as it applies to a Spark-on-Kuberne
 3. **cgroups v2 hierarchy** — per-pod/container CPU/memory/IO accounting and limits, enforced by the kernel on behalf of the container runtime (containerd).
 4. **Container runtime + Kubernetes kubelet** — translates pod `resources.requests/limits` into cgroup parameters.
 5. **JVM / Python process (Spark executor, Kafka broker)** — requests heap/off-heap memory and threads from the OS within its cgroup's bounds.
-6. **Application scheduling layer** — Spark's own task scheduler, layered *on top of* OS thread scheduling — see [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md).
+6. **Application scheduling layer** — Spark's own task scheduler, layered *on top of* OS thread scheduling — see [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md).
 
 A performance incident is almost always a mismatch **between layers 3 and 5**: the application (layer 5) assumes it owns the resources it requested, while the kernel (layer 3) enforces a harder, differently-accounted limit.
 
@@ -176,7 +176,7 @@ OS-level "metadata" that drives decisions:
 - **`/proc` and `/sys` filesystems** — live process, memory, and cgroup state (`/proc/meminfo`, `/sys/fs/cgroup/.../memory.current`).
 - **cgroup accounting counters** — `memory.current`, `memory.max`, `memory.stat` (cache vs. anon breakdown), `cpu.stat` (`nr_throttled`, `throttled_usec`).
 - **NUMA topology metadata** — `numactl --hardware` reports nodes, CPU-to-node mapping, and per-node memory, essential for sizing memory-optimized VMs correctly.
-- **Filesystem metadata** — inode tables, extents (block); ADLS Gen2 hierarchical namespace metadata (directories as first-class objects, unlike flat blob storage) — cross-reference [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md).
+- **Filesystem metadata** — inode tables, extents (block); ADLS Gen2 hierarchical namespace metadata (directories as first-class objects, unlike flat blob storage) — cross-reference [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md).
 - **Scheduler statistics** — `vmstat`, `mpstat` expose run-queue length and context-switch rate, the leading indicators of CPU oversubscription.
 
 Good OS observability *is* good metadata collection: without `cpu.stat`/`memory.stat` scraped into Azure Monitor/Prometheus, throttling and page-cache eviction are invisible.
@@ -214,7 +214,7 @@ OS-level compute considerations for sizing:
 - **The network stack is itself OS-managed** — socket buffers, TCP congestion control, and NIC interrupt handling (IRQ affinity) all affect Kafka/shuffle throughput.
 - **`SO_RCVBUF`/`SO_SNDBUF` sizing** interacts with the page cache indirectly: network receive buffers are kernel memory, competing with page cache under memory pressure.
 - **NUMA-aware NIC affinity.** On large VMs, binding network-heavy processes (Kafka brokers) to CPUs on the NUMA node closest to the NIC reduces cross-node interrupt handling latency.
-- Full treatment in [Networking Fundamentals](04_Networking_Fundamentals.prompt.md); this chapter's contribution is *where the OS sits* in that path (kernel socket buffers → NIC driver → hardware).
+- Full treatment in [Networking Fundamentals](04_Networking_Fundamentals.md); this chapter's contribution is *where the OS sits* in that path (kernel socket buffers → NIC driver → hardware).
 
 ---
 
@@ -270,6 +270,8 @@ OS-driven performance levers, in priority order:
 - **Right memory headroom avoids the "OOM → retry → re-read from ADLS → re-processing cost" cycle**, which is often more expensive than the RAM you were trying to save.
 - **Spot/low-priority VMs** for OS-fault-tolerant, checkpointed batch workloads reduce compute cost 60–90%, relying on graceful `SIGTERM` handling described above.
 
+**Worked FinOps example — headroom cost vs. OOM-retry cost (illustrative rates; verify current figures in the Azure Pricing Calculator).** A streaming job runs on a `Standard_E16s_v5` node pool at roughly $1.30/VM-hour pay-as-you-go. Raising the per-executor memory limit by 20% (to stop OOM-kills) requires two extra nodes across a 10-node pool: 2 × $1.30 ≈ $2.60/hour ≈ **~$1,900/month**. Compare that to the cost of *not* fixing it: 50 OOM-kills/day, each forcing a ~200GB shuffle partition to be re-read from ADLS Gen2 (~$0.02/GB read/transaction cost) and reprocessed on a 16-vCPU node for ~10 minutes (~$0.22 compute) — roughly $0.40–$0.50 per incident, or **~$700–$750/month** in direct reprocessing spend alone, before counting SLA breach cost or on-call time. In this shape, the extra headroom pays for itself if it eliminates more than roughly half the daily OOM-kills — a one-line justification an architect can defend in a cost review instead of "let's add a bigger VM."
+
 ---
 
 ## Monitoring
@@ -291,6 +293,34 @@ In Azure, surface these via **Azure Monitor Container Insights** (AKS) and **Dat
 - **Flame graphs and `perf`** attribute CPU time to kernel vs. user space, revealing whether time is spent in application code, GC, or syscalls (e.g., excessive `fsync` calls).
 - **eBPF-based tooling** (e.g., `bpftrace`, or managed equivalents) gives low-overhead, production-safe visibility into scheduling latency and page faults without the overhead of full `strace`.
 - **Structured incident timelines** should explicitly record: was this CPU-throttled, memory-reclaimed, OOM-killed, or NUMA-cross-node? — that classification determines the fix.
+
+---
+
+## Operational Response Playbook
+
+These are the two highest-frequency OS-level incidents on a Spark/Kafka-on-AKS or Databricks estate, each expressed as **signal → detection query → remediation**.
+
+### Playbook 1: Executor/pod OOM-killed
+
+| Step | Action |
+|---|---|
+| **Signal** | Spark UI shows a red "Executor Lost" event with `ExecutorLostFailure`; `kubectl get pods` shows `OOMKilled` with `Exit Code: 137`; `dmesg`/kubelet events show `oom-kill` or `OOMKilling`. |
+| **Detection query (KQL, Azure Monitor Log Analytics)** | `KubePodInventory \| where PodStatus == "Failed" \| join kind=inner (KubeEvents \| where Reason == "OOMKilling") on ContainerID \| project TimeGenerated, PodName, Namespace, Reason, Message` (same query as in the Azure Implementation section above). |
+| **Detection command (kubectl)** | `kubectl describe pod <pod> \| grep -A5 "Last State"` — confirm `Reason: OOMKilled`. |
+| **Immediate remediation** | Do **not** just add more replicas. Compare `memory.max` against `memory.stat` (anon vs. cache split) at the kill timestamp; if off-heap/cache pushed RSS over the limit, raise the container memory limit to heap × 1.2–1.5, or lower `-Xmx` to restore headroom. |
+| **Root-cause check** | Was `memory.high` configured below `memory.max`? If not, the container had no soft-reclaim warning before the hard kill — configure both. |
+| **Follow-up** | Add the worked FinOps comparison above (headroom cost vs. reprocessing cost) to the incident follow-up before deciding the "right" limit. |
+
+### Playbook 2: CPU throttling with misleadingly low CPU%
+
+| Step | Action |
+|---|---|
+| **Signal** | Sawtooth task latency in the Spark UI or an API's p99 despite `top`/node CPU% appearing low; the node has idle capacity but the pod does not use it. |
+| **Detection query (KQL)** | `InsightsMetrics \| where Name == "cpuUsageNanoCores" or Name == "cpuThrottledNanoSeconds" \| where Tags has "<pod-name>" \| summarize ThrottledRatio = sum(todouble(Val)) by bin(TimeGenerated, 5m)` — or, on raw Prometheus/Container Insights, chart `container_cpu_cfs_throttled_seconds_total / container_cpu_cfs_periods_total`. |
+| **Detection command** | `cat /sys/fs/cgroup/cpu.stat` inside the pod (cgroups v2) — check `nr_throttled` and `throttled_usec` growing over time. |
+| **Immediate remediation** | Right-size thread pools (JVM GC threads, Spark task threads, I/O pools) to the cgroup-visible CPU quota, not `Runtime.availableProcessors()` against the node's full core count. |
+| **Root-cause check** | Confirm the JDK/runtime is cgroup-v2 aware; older or misconfigured runtimes report the *node's* core count instead of the *cgroup's* quota, causing over-threading. |
+| **Follow-up** | Add throttling ratio as a first-class SLI in Azure Monitor, alerting on the ratio itself — not on raw CPU% — since throttled pods often show low average CPU%. |
 
 ---
 
@@ -681,9 +711,9 @@ Every stage of this flow is governed by an OS mechanism described in this chapte
 These OS fundamentals directly support the Phase-20 capstone (see [Introduction](01_Introduction.md)):
 
 - **Cluster sizing and cost models** rest on cgroup/NUMA/page-cache reasoning developed here.
-- **Reliability/SRE practices** ([Reliability and SRE](../Phase-18/04_Reliability_and_SRE.prompt.md)) depend on correctly interpreting OOM-kills and throttling as first-class incident signals.
-- **Distributed processing performance** ([Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)) builds on the OS scheduling and memory model here.
-- **Storage system design** ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md)) depends on the block-vs-object I/O distinction established here.
+- **Reliability/SRE practices** ([Reliability and SRE](../Phase-18/04_Reliability_and_SRE.md)) depend on correctly interpreting OOM-kills and throttling as first-class incident signals.
+- **Distributed processing performance** ([Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md)) builds on the OS scheduling and memory model here.
+- **Storage system design** ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md)) depends on the block-vs-object I/O distinction established here.
 
 In the capstone you will justify cluster/node-pool sizing with OS-level headroom math, not just observed averages.
 
@@ -693,26 +723,41 @@ In the capstone you will justify cluster/node-pool sizing with OS-level headroom
 
 **Engineer level**
 1. What is a context switch and what does it cost?
+   **A:** A context switch is the kernel saving one process/thread's CPU register state and loading another's, incurring direct cost (the save/restore itself) plus indirect cost (cold CPU caches and TLB after the switch), which is why over-subscribing cores causes throughput to fall even though "CPU usage" looks fine.
 2. Explain the difference between anonymous and page-cache memory.
+   **A:** Anonymous memory is process-private data with no backing file (heap, stack) that must go to swap if reclaimed; page-cache memory is a cached copy of file contents already backed by disk/object storage, so it can be dropped and re-read cheaply under memory pressure without data loss.
 3. Why does `free -m` "low free memory" often not indicate a problem?
+   **A:** Linux deliberately uses "free" RAM to cache recently accessed file pages because unused RAM provides no value; that cache is reclaimable on demand, so low "free" with high "available" is healthy, not a leak.
 4. What happens on a page fault?
+   **A:** The CPU traps to the kernel because the accessed virtual address isn't mapped to a physical page; the kernel either loads the page from disk/swap (major fault, slow) or simply maps an already-resident page for the first touch (minor fault, fast), then resumes the instruction.
 5. What is the OOM-killer and when does it trigger?
+   **A:** The OOM-killer is the kernel's last-resort mechanism that terminates a process (or, in a cgroup, the whole container) when memory demand exceeds what can be reclaimed or swapped, selecting a victim by a scoring heuristic (`oom_score`) — in containers it fires when `memory.max` is exceeded and reclaim can't keep up.
 
 **Staff Engineer Questions**
 6. Walk through diagnosing a Spark job with "Executor Lost" errors using OS-level tooling.
+   **A:** Correlate the executor's loss timestamp with `dmesg`/kubelet OOM events and the pod's `memory.stat` history; if the executor's heap plus off-heap plus page-cache demand exceeded the container's `memory.max`, the kernel — not Spark — killed it, so the fix is raising the memory limit or lowering `-Xmx` to leave headroom.
 7. Explain how cgroup CPU quotas cause throttling distinct from CPU starvation, and how to detect it.
+   **A:** Throttling is the kernel pausing a container once it exhausts its `cpu.max` quota within a 100ms period, even if the node has idle cores available — it's a self-imposed limit, not contention; detect it via `cpu.stat`'s `nr_throttled`/`throttled_usec` climbing while node-level CPU utilization stays low.
 8. Design container resource limits for a JVM workload, accounting for heap, off-heap, and page cache.
+   **A:** Set `memory.max` to at least 1.2-1.5x the JVM heap to leave room for off-heap (direct buffers, metaspace, native libraries) and reclaimable page-cache pressure, and set `memory.high` below `memory.max` so the kernel throttles/reclaims gracefully before a hard OOM-kill.
 9. When would you choose direct I/O over buffered I/O, and why is it rarely right for Spark?
+   **A:** Direct I/O is right when the application manages its own cache more effectively than the OS (databases with a tuned buffer pool); it's rarely right for Spark because Spark relies on the OS page cache for cheap repeated reads of the same Parquet blocks across stages/jobs, and bypassing it would force redundant remote reads.
 
 **Architect Questions**
 10. Design a multi-tenant AKS node-pool strategy that prevents noisy-neighbor incidents across teams, addressing CPU, memory, and I/O isolation.
+    **A:** Use dedicated node pools per workload class (not just namespaces) with hard resource `requests=limits` for guaranteed QoS on latency-sensitive pods, taints/tolerations to prevent scheduling unrelated workloads onto sensitive pools, and per-pool I/O throttling or dedicated disks for I/O-heavy tenants.
 11. How would you decide between fewer/larger vs. more/smaller executors on multi-socket VM SKUs, considering NUMA?
+    **A:** Prefer executor sizes that fit within a single NUMA node's memory to avoid cross-node access latency; fewer/larger executors that straddle NUMA nodes suffer inconsistent memory latency, while many small executors sized per-NUMA-node give predictable performance at the cost of more scheduling overhead.
 12. Define the platform-wide memory-headroom policy for containerized JVM/Python workloads and how you'd enforce it.
+    **A:** Mandate a documented headroom formula (e.g., limit ≥ 1.2× heap for latency-sensitive, 1.5× for batch/spill-tolerant), enforce it via a Kubernetes admission webhook or Databricks cluster policy that rejects pod specs below the formula, and require exceptions to go through an architecture review.
 
 **CTO Review Questions**
 13. What is our exposure to noisy-neighbor SLA breaches in shared clusters, and what governance prevents it?
+    **A:** Shared clusters without hard resource isolation risk one team's burst degrading another's SLA invisibly (it shows up in application dashboards, not infrastructure ones); governance is dedicated node pools with QoS-guaranteed limits for anything with an external SLA, enforced by policy, not convention.
 14. Quantify the cost impact of unaddressed CPU throttling across the platform's compute footprint.
+    **A:** Throttled-but-"idle-looking" containers waste money twice — the throttled workload runs slower (extending billed cluster time) while cores sit idle at the node level; a fleet-wide throttling audit typically finds double-digit-percentage cost recovery opportunities without buying new capacity.
 15. What is our node/kernel patching cadence, and what risk does that create for regulated workloads?
+    **A:** An unpatched kernel exposes known CVEs in cgroup/namespace isolation, which is a direct multi-tenant security and compliance risk; the mitigation is an enforced, auditable node-image patching cadence tied to AKS's managed node image releases, not ad hoc manual patching.
 
 ---
 
@@ -720,8 +765,11 @@ In the capstone you will justify cluster/node-pool sizing with OS-level headroom
 
 (Consolidated for interview prep — see items 6-9 above, plus:)
 - Explain the relationship between `memory.high` and `memory.max` in cgroups v2 and how you'd configure both for a graceful-degradation strategy.
+  **A:** `memory.high` is a soft throttling threshold that triggers proactive reclaim and slows the cgroup down before memory is exhausted, while `memory.max` is the hard ceiling that triggers OOM-kill; setting `memory.high` at roughly 85% of `memory.max` gives the kernel room to reclaim gracefully instead of jumping straight to a kill.
 - Describe how you would detect and resolve a NUMA cross-node latency issue on a production service with no code access.
+  **A:** Use `numastat` to check for high cross-node memory access counts and `numactl --hardware` to understand node topology, then resolve it operationally by pinning the process with `numactl --membind`/`--cpunodebind` or by adjusting the container's CPU/memory manager policy to enforce NUMA-local scheduling — no application code change required.
 - Contrast lineage-based task retry (Spark) with OS-level process restart semantics after an OOM-kill.
+  **A:** Spark's lineage-based retry re-executes only the lost partition's task from its recorded DAG, a fine-grained, in-job recovery; an OS-level OOM-kill terminates the entire executor process, requiring the Spark driver to notice the executor loss, reschedule its tasks elsewhere, and potentially re-fetch shuffle data the dead executor was serving — a coarser, more expensive recovery path.
 
 ---
 
@@ -729,7 +777,9 @@ In the capstone you will justify cluster/node-pool sizing with OS-level headroom
 
 (See items 10-12 above, plus:)
 - Produce an ADR for standardizing container memory-headroom ratios across the enterprise platform, including alternatives (fixed ratio vs. per-workload profiling) and consequences.
+  **A:** See ADR-0003 below — it standardizes a formula-driven headroom ratio (1.2x/1.5x by workload class) over per-workload manual profiling, trading a small amount of "wasted" density for eliminating the phantom-OOM incident class platform-wide.
 - Define the NUMA-aware VM SKU selection policy for memory-bound AI/ML serving workloads.
+  **A:** Require memory-bound serving workloads to be sized to fit within a single NUMA node's memory and core count on the chosen VM SKU, documented per SKU family, so the scheduler can guarantee NUMA-local placement rather than leaving it to chance.
 
 ---
 
@@ -737,7 +787,9 @@ In the capstone you will justify cluster/node-pool sizing with OS-level headroom
 
 (See items 13-15 above, plus:)
 - Present the FinOps case that eliminating CPU throttling platform-wide is cheaper than the next VM-size upgrade cycle.
+  **A:** A throttling audit that right-sizes `cpu.max` quotas to actual thread concurrency typically recovers a meaningful percentage of wasted wall-clock time at zero incremental infrastructure cost, whereas the "just buy bigger VMs" fix increases the recurring bill indefinitely without addressing the root cause.
 - Assess the business risk of swap-enabled nodes handling regulated data, and the controls that bound it.
+  **A:** Swap can write sensitive in-memory data to disk unencrypted-at-rest if disk encryption isn't independently enforced, and swapped pages introduce unpredictable latency for regulated, latency-sensitive workloads; the control is disabling swap on Kubernetes worker nodes handling regulated data and enforcing disk encryption platform-wide regardless.
 
 ---
 
@@ -766,4 +818,4 @@ In the capstone you will justify cluster/node-pool sizing with OS-level headroom
 - Ulrich Drepper — *What Every Programmer Should Know About Memory* (NUMA and cache sections).
 - Kubernetes documentation — *Resource Management for Pods and Containers*, *Node-pressure Eviction*.
 - Netflix Tech Blog — performance-engineering posts on NUMA and JVM tuning at scale.
-- Handbook cross-references: [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md), [Networking Fundamentals](04_Networking_Fundamentals.prompt.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).
+- Handbook cross-references: [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md), [Networking Fundamentals](04_Networking_Fundamentals.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md).

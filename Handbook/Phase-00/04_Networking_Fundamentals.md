@@ -93,7 +93,7 @@ Without these mechanisms, every distributed data pipeline would need to hand-rol
 
 ## Problems It Cannot Solve
 
-- **It cannot make a partitioned network "not partitioned."** No amount of retry logic changes the fact that, for some duration, two nodes cannot communicate — the *application* must choose availability or consistency during that window (see the CAP-theorem discussion in [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)).
+- **It cannot make a partitioned network "not partitioned."** No amount of retry logic changes the fact that, for some duration, two nodes cannot communicate — the *application* must choose availability or consistency during that window (see the CAP-theorem discussion in [Distributed Systems Primer](08_Distributed_Systems_Primer.md)).
 - **It cannot guarantee bounded latency.** TCP guarantees eventual, ordered delivery — not a deadline; real-time/low-latency requirements need application-level timeout and fallback design.
 - **It cannot fix a badly chosen protocol.** A chatty, many-round-trip RPC design is slow on the fastest network; networking optimizes *transport*, not *conversation design*.
 - **It cannot secure an application that trusts its inputs blindly.** TLS/mTLS secures the pipe; it does nothing for injection attacks, broken authorization, or insecure deserialization at the endpoints (OWASP Top 10 concerns remain the application's responsibility).
@@ -134,7 +134,7 @@ A DNS lookup walks a **hierarchy**: stub resolver (client) → recursive resolve
 
 ### 8.8 Network partitions and distributed failure
 
-A **network partition** is any period where a subset of nodes cannot communicate with another subset, despite both subsets being individually healthy — caused by switch failures, misconfigured routes, cross-region link outages, or even asymmetric partial partitions (A can reach B, but B cannot reach A). Partitions are the "P" in **CAP theorem**: during a partition, a system must choose to sacrifice **C**onsistency (serve possibly-stale data to stay available) or **A**vailability (refuse requests to stay consistent) — there is no third option. This directly motivates quorum-based consensus (Raft/Paxos, covered in [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)) and is why "the network is reliable" is the first, and most damaging, of the classic Fallacies of Distributed Computing.
+A **network partition** is any period where a subset of nodes cannot communicate with another subset, despite both subsets being individually healthy — caused by switch failures, misconfigured routes, cross-region link outages, or even asymmetric partial partitions (A can reach B, but B cannot reach A). Partitions are the "P" in **CAP theorem**: during a partition, a system must choose to sacrifice **C**onsistency (serve possibly-stale data to stay available) or **A**vailability (refuse requests to stay consistent) — there is no third option. This directly motivates quorum-based consensus (Raft/Paxos, covered in [Distributed Systems Primer](08_Distributed_Systems_Primer.md)) and is why "the network is reliable" is the first, and most damaging, of the classic Fallacies of Distributed Computing.
 
 ---
 
@@ -199,7 +199,7 @@ Good network observability is good metadata correlation: a "connection reset" wi
 
 ## Storage
 
-Networking's relevance to storage is primarily as the **access path**, not the persistence mechanism (see [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md) for the storage layer itself):
+Networking's relevance to storage is primarily as the **access path**, not the persistence mechanism (see [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md) for the storage layer itself):
 
 - **ADLS Gen2 access is always over HTTPS (`abfss://`)** — every read/write pays a TLS-protected HTTP round trip; Private Link removes the public-internet hop but not the HTTP/TLS overhead itself.
 - **Private Link vs. Service Endpoint** — Private Link assigns the PaaS service a private IP *inside* your VNet (true network isolation); Service Endpoints keep traffic on the Azure backbone but the PaaS resource retains a public IP with access restricted by policy — a materially different security and DNS story.
@@ -268,7 +268,7 @@ Network-driven performance levers, in priority order:
 - **Retries need backoff and jitter.** Naive immediate retries during a partial outage create a **thundering herd** that prevents the backend from ever recovering; exponential backoff with jitter (and a retry budget) is the standard mitigation.
 - **Circuit breakers** stop calling a consistently failing dependency for a cool-down period, converting cascading failure into fast, cheap local failure — a pattern implemented at the mesh (Envoy outlier detection) or client-library layer (Polly, resilience4j).
 - **Health probes and outlier detection** remove unhealthy backend instances from the load-balancing pool automatically, converting individual node failure into (mostly) invisible capacity reduction rather than client-visible errors.
-- **Network partitions demand an explicit CAP choice**, made in advance (see [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)) — "what does this service do when it can't reach its primary datastore" must have a designed answer, not an accidental one.
+- **Network partitions demand an explicit CAP choice**, made in advance (see [Distributed Systems Primer](08_Distributed_Systems_Primer.md)) — "what does this service do when it can't reach its primary datastore" must have a designed answer, not an accidental one.
 
 ---
 
@@ -310,7 +310,7 @@ In Azure, surface these via **Azure Monitor / Network Watcher** (NSG flow logs, 
 - **Standardize VNet topology and NSG baseline rules** as reviewed platform defaults (hub-spoke, mandatory deny-by-default with explicit allow-lists), not per-team ad hoc configuration.
 - **Mandate Private Link for all PaaS data-plane access** in regulated environments — public endpoints for storage/database services should be a tracked, time-boxed exception, not a default.
 - **Centralize certificate issuance and rotation policy** (Key Vault-backed, automated renewal) with alerting on upcoming expiry well before outage risk.
-- **Require documented timeout/retry/circuit-breaker policy** per service as part of the platform's reliability governance (ties to [Reliability and SRE](../Phase-18/04_Reliability_and_SRE.prompt.md)).
+- **Require documented timeout/retry/circuit-breaker policy** per service as part of the platform's reliability governance (ties to [Reliability and SRE](../Phase-18/04_Reliability_and_SRE.md)).
 - **Audit DNS TTL and failover configuration** for public-facing global endpoints as part of disaster-recovery readiness reviews.
 
 ---
@@ -688,9 +688,9 @@ Every stage of this flow is governed by a mechanism described in this chapter, a
 These networking fundamentals directly support the Phase-20 capstone (see [Introduction](01_Introduction.md)):
 
 - **Global architecture and DR design** rest on the DNS/load-balancing/failover reasoning developed here.
-- **Distributed systems consistency trade-offs** ([Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)) depend on correctly modeling network partitions as a first-class failure mode, not an edge case.
+- **Distributed systems consistency trade-offs** ([Distributed Systems Primer](08_Distributed_Systems_Primer.md)) depend on correctly modeling network partitions as a first-class failure mode, not an edge case.
 - **Security and zero-trust design** ([Security, Identity & Compliance](../Phase-10/README.md)) builds on the TLS/mTLS and Private Link foundations established here.
-- **Storage access patterns** ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md)) depend on understanding the HTTP/TLS access path to object storage established here.
+- **Storage access patterns** ([Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md)) depend on understanding the HTTP/TLS access path to object storage established here.
 
 In the capstone you will justify network topology, load-balancer tier selection, and failover configuration with explicit latency/RTO math, not just a diagram.
 
@@ -700,26 +700,41 @@ In the capstone you will justify network topology, load-balancer tier selection,
 
 **Engineer level**
 1. What is the difference between latency and bandwidth?
+   **A:** Latency is the time for a single bit/packet to travel from sender to receiver (a delay), while bandwidth is the volume of data that can be transferred per unit time (a rate) — a link can have high bandwidth and still feel slow for small requests if latency is high, and vice versa.
 2. Explain the steps of a TLS 1.3 handshake.
+   **A:** The client sends a ClientHello with its supported key-share parameters, the server responds with its certificate, key share, and a Finished message in a single round trip, and both sides derive symmetric session keys from the exchanged Diffie-Hellman shares — TLS 1.3 collapses this to one round trip (versus two in TLS 1.2) before encrypted application data can flow.
 3. What is DNS TTL and how does it affect failover?
+   **A:** TTL is how long a resolver caches a DNS record before re-querying; a long TTL means clients keep using a failed endpoint's IP for longer after a DNS-based failover switches the record, so low TTLs (with the trade-off of more query load) are needed for DNS-based failover to be fast.
 4. What is the difference between L4 and L7 load balancing?
+   **A:** L4 balances based on IP/port (transport layer) without inspecting application content, making it fast and protocol-agnostic; L7 inspects HTTP headers/paths/cookies to make routing decisions, enabling content-based routing and session affinity at the cost of more processing overhead.
 5. Why does a lost packet in HTTP/2 block multiple streams?
+   **A:** HTTP/2 multiplexes multiple logical streams over a single TCP connection, so a lost TCP segment blocks the entire connection's reassembly at the transport layer — a problem HTTP/3 (over QUIC) solves by multiplexing streams independently at the transport layer itself, so one stream's loss doesn't block others.
 
 **Staff Engineer Questions**
 6. Walk through diagnosing a service with high p99 latency but low average latency, using network-level tracing.
+   **A:** A low average with a high p99 means a small fraction of requests hit an outlier path — trace per-hop timing (DNS resolution, TCP/TLS handshake, proxy queue time) to find which hop's tail is fat; common causes are connection-pool exhaustion causing occasional new-connection handshake cost, or a specific backend instance under load.
 7. Explain how mTLS is established and rotated in a service mesh without application code changes.
+   **A:** A sidecar proxy (e.g., Envoy) intercepts all inbound/outbound traffic transparently via iptables redirection, performing the mTLS handshake and certificate rotation itself using certificates issued by the mesh's control plane — the application only ever talks plaintext to its local sidecar.
 8. Design a retry and circuit-breaker policy for a service chain with three sequential downstream dependencies.
+   **A:** Cap total retry budget per request (not per hop) to avoid retry amplification across the chain, apply exponential backoff with jitter, and open a circuit breaker per downstream dependency independently so one failing service doesn't exhaust retries meant for healthy ones.
 9. When would you choose QUIC/HTTP-3 over HTTP/2 for a given workload, and why?
+   **A:** Choose QUIC/HTTP-3 for high-latency or lossy networks (mobile clients, geographically distant users) because its per-stream independent loss recovery avoids head-of-line blocking that plagues HTTP/2 over TCP under packet loss.
 
 **Architect Questions**
 10. Design a global, multi-region network architecture for a latency-sensitive, regulated data platform, addressing edge routing, TLS, and private connectivity.
+    **A:** Use anycast-based edge routing (Azure Front Door) to route users to the nearest healthy region, terminate TLS at the edge with automated certificate rotation, and connect regional platform components exclusively via Private Link/ExpressRoute rather than public endpoints to keep regulated data off the public internet.
 11. How would you decide between a service mesh and a simpler API-gateway-only architecture for a mid-sized microservice estate?
+    **A:** Choose a service mesh when east-west (service-to-service) traffic volume and security requirements (mTLS everywhere, per-hop observability) justify the sidecar overhead; an API-gateway-only architecture suffices when most complexity is north-south (external-to-service) and internal service count/traffic is modest enough that per-service manual resilience code isn't yet a maintenance burden.
 12. Define the platform-wide policy for PaaS connectivity (public endpoint vs. Service Endpoint vs. Private Link) and its exceptions process.
+    **A:** Default to Private Link for all PaaS connectivity to keep traffic on the Microsoft backbone and off public IP space; Service Endpoints are legacy-only for already-deployed resources pending migration, and any exception (a public endpoint) requires a documented, time-boxed architecture-review approval.
 
 **CTO Review Questions**
 13. What is our actual (measured, not advertised) RTO for regional failover, and what network configuration determines it?
+    **A:** The real RTO is bounded by DNS TTL plus health-probe detection interval plus propagation delay — measure it with an actual failover drill, not the vendor's advertised number, since a long TTL alone can silently double or triple the real-world recovery time.
 14. Quantify our cross-region/cross-AZ egress cost exposure and the architectural levers to reduce it.
+    **A:** Cross-region/cross-AZ egress is billed per GB and compounds with chatty service-to-service traffic; the levers are co-locating tightly-coupled services within a zone, using zone-aware routing, and caching/replicating read-heavy data locally rather than round-tripping every request cross-region.
 15. What is our certificate-expiry and TLS-configuration governance, and what residual risk remains?
+    **A:** Governance should mean automated certificate issuance/rotation (Key Vault-integrated) with alerting well before expiry, not manual tracking; residual risk remains for any service still using manually managed certificates or legacy TLS versions not yet migrated to the automated pipeline.
 
 ---
 
@@ -727,8 +742,11 @@ In the capstone you will justify network topology, load-balancer tier selection,
 
 (Consolidated for interview prep — see items 6-9 above, plus:)
 - Explain the bandwidth-delay product and how it explains poor throughput on a high-bandwidth, high-latency link despite no packet loss.
+  **A:** Bandwidth-delay product is bandwidth × round-trip-time, representing how much data can be "in flight" before an ACK returns; if the TCP window is smaller than this product, throughput is capped well below the link's actual bandwidth regardless of packet loss, because the sender stalls waiting for ACKs.
 - Describe how you would detect and resolve an MTU mismatch causing silent fragmentation in a production data-plane network.
+  **A:** Detect it via packet captures showing unexpected fragmentation or via `ping` with the don't-fragment flag at increasing sizes to find the breaking point; resolve it by aligning MTU settings consistently across all hops (VNet, VPN gateway, on-prem) or enabling MSS clamping so TCP negotiates a safe segment size automatically.
 - Contrast DNS-based failover with health-probe-driven anycast failover in terms of real-world RTO.
+  **A:** DNS-based failover's RTO is bounded below by TTL plus client-side caching behavior (often minutes in practice); anycast with health probes reroutes at the network layer within seconds because unhealthy endpoints are withdrawn from routing advertisements directly, without waiting for client-side cache expiry.
 
 ---
 
@@ -736,7 +754,9 @@ In the capstone you will justify network topology, load-balancer tier selection,
 
 (See items 10-12 above, plus:)
 - Produce an ADR for adopting a service mesh mTLS-by-default policy across the platform, including alternatives and consequences.
+  **A:** See ADR-0004 below — it adopts mesh-provided mTLS over per-service manual implementation or NSG-only perimeter trust, accepting sidecar resource overhead in exchange for consistent zero-trust posture and per-hop observability.
 - Define the enterprise's zero-trust network policy for service-to-service authentication and authorization.
+  **A:** Require every service-to-service call to be mutually authenticated (mTLS) and explicitly authorized (mesh-level policy, not implicit network-perimeter trust), treating the internal network as untrusted by default rather than granting blanket access based on network location.
 
 ---
 
@@ -744,7 +764,9 @@ In the capstone you will justify network topology, load-balancer tier selection,
 
 (See items 13-15 above, plus:)
 - Present the business case for investing in network-span observability (DNS/TLS/proxy-hop tracing) versus continuing with application-only APM.
+  **A:** Application-only APM is blind to DNS resolution delay, TLS handshake cost, and proxy queueing, which is often exactly where p99 tail latency lives; network-span observability turns "it's slow somewhere" incidents into a specific-hop root cause in minutes instead of days.
 - Assess the business risk of a major DNS/CDN provider outage on our customer-facing SLAs, and the mitigations in place.
+  **A:** A single-provider DNS/CDN outage can take down every customer-facing endpoint simultaneously regardless of how resilient the backend architecture is; the mitigation is a secondary DNS provider or documented manual failover runbook, tested periodically, not assumed.
 
 ---
 
@@ -774,4 +796,4 @@ In the capstone you will justify network topology, load-balancer tier selection,
 - Gregg, Brendan — *Systems Performance* (networking chapters).
 - Istio / Envoy documentation — *mTLS, traffic management, and observability*.
 - Cloudflare / major CDN engineering blogs — post-incident write-ups on DNS/edge outages.
-- Handbook cross-references: [Operating Systems for Data Engineers](03_Operating_Systems.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.prompt.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md), [Security, Identity & Compliance](../Phase-10/README.md).
+- Handbook cross-references: [Operating Systems for Data Engineers](03_Operating_Systems.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md), [Security, Identity & Compliance](../Phase-10/README.md).

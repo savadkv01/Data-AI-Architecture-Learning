@@ -802,34 +802,48 @@ In the handbook capstone, DDD should provide the semantic skeleton for the platf
 ## Interview Questions
 
 1. What is the difference between a subdomain and a bounded context?
+   **A:** A subdomain is a piece of the business problem space (e.g., "billing" as a concept the business owns), discovered through domain analysis; a bounded context is a solution-space boundary — a specific model and its consistent ubiquitous language, implemented by a specific team/codebase — and the two aren't always one-to-one, since one subdomain can be split across contexts or one context can cover multiple subdomains.
 2. Why is a ubiquitous language local to a bounded context rather than necessarily global across the enterprise?
+   **A:** The same word can mean genuinely different things in different contexts (e.g., "customer" in Sales means a prospect, in Billing means a paying account, in Support means a ticket submitter); forcing one global definition either loses precision in some contexts or requires an artificial, overly generic model that serves no context well.
 3. What makes an aggregate boundary correct or incorrect?
+   **A:** A correct aggregate boundary encloses exactly the data that must be transactionally consistent together (an invariant that can never be violated, even briefly) and nothing more; an incorrect boundary is either too large (unnecessary lock contention, coupling unrelated data) or too small (an invariant can be violated because two related pieces of data can be updated independently and inconsistently).
 4. When is a Conformist relationship acceptable, and what are its risks?
+   **A:** A Conformist relationship (adopting an upstream context's model as-is, with no translation layer) is acceptable when the upstream team is authoritative, stable, and the cost of translation isn't justified; the risk is that changes in the upstream model propagate directly into your context with no insulating layer, and your model's language becomes contaminated by concepts that don't actually fit your domain.
 5. How does DDD strengthen Data Mesh rather than competing with it?
+   **A:** Data Mesh's domain-oriented ownership needs a principled way to actually draw domain boundaries and define what each domain's data product means — DDD's bounded contexts and ubiquitous language provide exactly that discipline, turning "domain ownership" from an org-chart assignment into a semantically coherent boundary.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Your team owns a context that keeps receiving requests to expose its private tables because downstream consumers want faster integration. How would you evaluate and respond without hiding behind dogma?
+   **A:** Evaluate whether the requested data genuinely belongs to a stable, well-understood part of your model that's safe to expose as a contract, versus internal implementation detail that would leak instability to consumers if exposed directly; respond by offering a deliberately designed data product/API (an anti-corruption boundary) rather than either flatly refusing or granting raw table access.
 2. A context map shows five synchronous calls in the user request path. Which of those relationships would you challenge first, and what architectural alternatives would you consider?
+   **A:** Challenge the calls to contexts with the least critical, most tolerant-of-staleness data first (e.g., a recommendations context called synchronously in a checkout path), and consider async/eventual-consistency alternatives (event-driven updates, cached read models) for those, reserving synchronous calls only for genuinely required real-time consistency.
 3. How would you detect that a supposedly bounded context has become semantically overloaded before incidents make it obvious?
+   **A:** Watch for a growing, unrelated set of use cases being bolted onto one context's model, or the same term inside that context starting to carry multiple, subtly different meanings depending on which feature is using it — both are early signals of a context that has silently absorbed more than one actual bounded context's worth of responsibility.
 
 ---
 
 ## Architect Questions
 
 1. Design a context map for an enterprise support platform spanning CRM, billing, customer identity, policy and consent, transcript intelligence, and AI retrieval. Which relationships would you mark as ACL, Customer/Supplier, or OHS, and why?
+   **A:** Mark CRM and billing as Customer/Supplier (support platform is a customer needing their stable, well-governed data); mark customer identity as an ACL relationship (translate their model to avoid coupling to an external identity provider's schema); expose transcript intelligence and AI retrieval as Open Host Services (OHS) with a published, versioned API since multiple internal consumers will depend on them.
 2. How would you govern domain data products so federated ownership remains real without re-centralizing all semantic decisions into a platform board?
+   **A:** Give the platform board authority only over cross-domain interoperability standards (schema registry compatibility rules, naming conventions) while leaving each domain team full authority over their own internal model and ubiquitous language — governance should standardize the "seams" between contexts, not the contexts themselves.
 3. When modernizing a legacy monolith, how would you decide whether the first move should be event storming, modularization, ACL introduction, or storage isolation?
+   **A:** Start with event storming to actually discover where the real bounded-context seams are (you cannot modularize correctly along boundaries you haven't identified), then introduce an ACL at the discovered seam before attempting storage isolation, since storage separation without a validated model boundary risks splitting data that should have stayed together.
 
 ---
 
 ## CTO Review Questions
 
 1. Which of our most important business concepts still have no explicit owner or bounded context, and what risk does that create?
+   **A:** An unowned concept (e.g., "customer" defined inconsistently across five systems with no reconciling model) creates silent data-quality and reporting risk that surfaces expensively later, typically during a regulatory audit or a merger integration where the inconsistency can no longer be ignored.
 2. How much of our current platform complexity comes from real business complexity versus semantic ambiguity we have allowed to accumulate?
-3. If we are funding a Data Mesh or AI platform strategy, do our domain boundaries and glossary ownership actually support it, or are we scaling semantic confusion? 
+   **A:** This is answerable by auditing how many integration points exist purely to translate between inconsistent definitions of the same concept — that translation overhead is accidental complexity from unmanaged semantic ambiguity, not complexity the business itself actually requires.
+3. If we are funding a Data Mesh or AI platform strategy, do our domain boundaries and glossary ownership actually support it, or are we scaling semantic confusion?
+   **A:** Data Mesh and AI initiatives amplify whatever domain-boundary quality already exists — without disciplined bounded contexts and an owned ubiquitous language, scaling data/AI infrastructure just scales inconsistent, unreconciled definitions faster and to a wider audience.
 
 ---
 

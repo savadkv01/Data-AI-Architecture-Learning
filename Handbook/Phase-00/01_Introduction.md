@@ -652,37 +652,54 @@ Keep every artifact; the capstones assume you have been accumulating them.
 ## Interview Questions
 
 - What is the difference between a data lake and a lakehouse, in one sentence each?
+  **A:** A data lake is cheap, schema-on-read object storage for raw and semi-structured data with no built-in transactional guarantees; a lakehouse adds a transactional table format (Delta/Iceberg/Hudi) on top of that same storage, giving ACID writes, schema enforcement, and time travel without a separate warehouse copy.
 - Name three quality attributes an architecture chapter must always address and why.
+  **A:** Reliability, cost, and security — reliability because data platforms fail silently more often than they crash loudly, cost because cloud consumption-based billing makes every design choice a recurring bill, and security because data platforms are the highest-value target for exfiltration and the most heavily regulated surface in the enterprise.
 - Why does this handbook sequence storage and distributed systems before lakehouse?
+  **A:** Lakehouse table formats are just a transaction and metadata layer over columnar files and distributed storage primitives; without first understanding replication, consistency, and columnar encoding, a reader would memorize Delta/Iceberg mechanics without understanding why they work or when they fail.
 - What is an ADR and what are its four parts?
+  **A:** An Architecture Decision Record is a short, versioned document capturing a single significant decision; its four parts are Context (the forces at play), Decision (what was chosen), Consequences (positive, negative, and neutral trade-offs), and Alternatives considered (what was rejected and why).
 - Give one reason to prefer Azure Databricks over Microsoft Fabric and one reason for the reverse.
+  **A:** Prefer Databricks when you need mature multi-cloud portability, fine-grained cluster/runtime control, and the deepest MLflow/Unity Catalog ecosystem; prefer Fabric when the organization is already Microsoft 365/Power BI-centric and wants a single SaaS billing/capacity model (OneLake, direct Power BI integration) with less infrastructure to manage.
 
 ---
 
 ## Staff Engineer Questions
 
 - How would you design an internal learning/enablement program so its indexes never drift from its content? (Answer: single source of truth + generation; discuss idempotency.)
+  **A:** Generate the index programmatically from the content's own front-matter/headings at build time rather than hand-maintaining it, and make the generation step idempotent and CI-enforced so a content change that isn't reflected in the index fails the build.
 - Describe a time you identified a *jagged* competency in yourself or a teammate and how you closed it.
+  **A:** A strong signal is someone who can write a Spark job fluently but cannot explain why a join spilled to disk; closing the gap means pairing the practical skill with the underlying fundamental (memory, shuffle, partitioning) through a targeted lab rather than more surface-level tutorials.
 - How do you decide when a technical decision warrants an ADR versus a lightweight note?
+  **A:** Write an ADR when the decision is expensive to reverse, affects more than one team, or will be questioned later ("why didn't we use X"); a lightweight note suffices for reversible, single-team, low-blast-radius choices.
 - Propose metrics to evaluate whether a capability-uplift program is actually working.
+  **A:** Track leading indicators (lab completion rate, self-assessment score deltas) and lagging indicators (reduced incident MTTR on topics covered, internal promotion/interview pass-rate for covered competencies, and reduced reliance on external consultants for those topics).
 
 ---
 
 ## Architect Questions
 
 - You are asked to adapt this Azure-primary curriculum for a GCP-first enterprise. What changes, what stays, and how do you avoid a full rewrite?
+  **A:** The fundamentals (Phase-00/02 distributed-systems theory, storage internals, table formats) stay unchanged because they are vendor-neutral; only the cloud-specific chapters (Phase-03 Azure services) need a parallel GCP-mapped chapter, so structure the handbook so cloud content is isolated behind a clear seam rather than interleaved with fundamentals.
 - Critique the "fixed 50-section template" as a governance mechanism. Where does it help and where does it become an anti-pattern?
+  **A:** It helps by guaranteeing coverage (no chapter skips labs, trade-offs, or interview prep) and making content diffable/reviewable at scale; it becomes an anti-pattern when a topic genuinely doesn't need all 50 sections and authors pad content to satisfy the template rather than serve the reader.
 - Design a lightweight governance model (owners, change process, freshness reviews) for a 200-chapter internal knowledge base.
+  **A:** Assign one accountable owner per phase (not per chapter, to avoid bottlenecks), require a PR-based review for any chapter change with a link-validity and structure CI gate, and schedule quarterly freshness reviews triggered by either a calendar date or an external event (major version release of a covered technology).
 - How would you integrate structural and link-validity checks into CI without slowing contributors?
+  **A:** Run a fast, deterministic static check (regex/AST-based heading and link validation) as a pre-merge CI gate rather than a slow build, and keep it advisory-only for new contributors' first PR with a following-PR enforcement grace period.
 
 ---
 
 ## CTO Review Questions
 
 - What is the business case for investing in a structured internal knowledge base versus letting engineers learn ad hoc? Quantify it.
+  **A:** Ad hoc learning produces inconsistent depth across the org, measurable in incident postmortems that repeat the same root cause; a structured program with even a modest reduction in repeat-incident rate or ramp-up time for new hires (e.g., cutting a 6-month ramp to 4 months) pays for the authoring investment within a year for a team of any material size.
 - How does this program reduce hiring and promotion risk, and what metrics prove it?
+  **A:** It gives a calibrated, tiered rubric (engineer/staff/architect/CTO questions) that interview panels and promotion committees can use consistently instead of ad hoc judgment, and the proof is reduced variance in interview-panel scoring and fewer promotion reversals or performance-improvement-plan cases citing skill gaps this program covers.
 - What are the top three risks of adopting this at org scale, and how are they mitigated (cost, freshness, adoption)?
+  **A:** Cost risk (authoring/maintenance time) is mitigated by templated generation and shared ownership; freshness risk (content drifting behind fast-moving cloud services) is mitigated by scheduled reviews tied to vendor release cadences; adoption risk (engineers not using it) is mitigated by embedding it in onboarding and promotion criteria rather than treating it as optional reading.
 - How does this capability connect to the company's data/AI strategy and its measurable outcomes?
+  **A:** A workforce fluent in the same architectural vocabulary and Azure/Databricks patterns ships platform capabilities faster and with fewer redesigns, which is measurable in reduced project cycle time and fewer "re-architecture" line items in the platform roadmap.
 
 ---
 
@@ -699,7 +716,7 @@ Keep every artifact; the capstones assume you have been accumulating them.
 
 ## Further Reading
 
-- Next chapter: **Phase-00 · [Computer Science Fundamentals](../../.github/prompts/Phase-00/02_Computer_Science_Fundamentals.prompt.md)** — the first foundational topic.
+- Next chapter: **Phase-00 · [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md)** — the first foundational topic.
 - Parallel track (safe to start anytime): **Phase-01 · Enterprise Architecture Foundations**.
 - Staff+ engineering resources: Will Larson, *Staff Engineer*; Tanya Reilly, *The Staff Engineer's Path*.
 - Google SRE books (sre.google) for the reliability mindset used in Phase-18.

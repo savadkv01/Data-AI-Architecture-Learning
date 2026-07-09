@@ -85,7 +85,7 @@ By the end of this chapter you will be able to:
 ## Problems It Cannot Solve
 
 - **It cannot fix a bad data model.** Partitioning distributes whatever schema and access pattern you give it; if the access pattern requires joining across what are now separate shards for every request, partitioning has converted a local join into a slow, expensive network operation — the fix is data modeling (denormalization, pre-joining, choosing a partition key aligned to the dominant query), not more partitions.
-- **It cannot make cross-partition transactions free.** Distributed transactions across shards require the mechanisms from [Distributed Transactions](../Phase-02/05_Distributed_Transactions.prompt.md) (2PC, sagas) — partitioning is what *creates* the need for these, not what solves it.
+- **It cannot make cross-partition transactions free.** Distributed transactions across shards require the mechanisms from [Distributed Transactions](../Phase-02/05_Distributed_Transactions.md) (2PC, sagas) — partitioning is what *creates* the need for these, not what solves it.
 - **It cannot eliminate hot keys by itself.** If the real world has one key that is genuinely 1000x hotter than any other (a celebrity account, a flash-sale SKU), no partitioning scheme routes that key to more than one partition without additional techniques (key salting, write sharding, caching) — partitioning is necessary but not sufficient for skew.
 - **It cannot substitute for capacity planning.** A correctly partitioned system still needs the right number of partitions and the right throughput provisioned per partition (RUs, vCores, broker capacity) — partitioning enables scaling, it does not automatically provide it without correct sizing.
 - **It cannot make every query fast.** Queries that do not filter on the partition key become scatter-gather by construction; partitioning trades some query flexibility for scale, and no partitioning scheme restores full relational flexibility for free.
@@ -198,7 +198,7 @@ Every partitioning scheme needs an authoritative record of "who owns what," and 
 
 - **Cosmos DB** maintains an internal partition map (not directly exposed) tracking logical-to-physical partition assignment; the SDK caches routing information and refreshes on a 410/"partition gone" response.
 - **Citus** stores distribution metadata in coordinator-side catalog tables (`pg_dist_shard`, `pg_dist_shard_placement`, `pg_dist_node`) — the coordinator itself should be made highly available (e.g., via Postgres streaming replication) since it is a control-plane single point of failure if not.
-- **Vitess** stores its topology (keyspace/shard map, tablet health) in an external, strongly consistent store — etcd (or ZooKeeper/Consul) — explicitly chosen for its own consensus guarantees ([Consensus and Coordination](01_Consensus_and_Coordination.prompt.md)).
+- **Vitess** stores its topology (keyspace/shard map, tablet health) in an external, strongly consistent store — etcd (or ZooKeeper/Consul) — explicitly chosen for its own consensus guarantees ([Consensus and Coordination](01_Consensus_and_Coordination.md)).
 - **Cassandra** distributes ring/token metadata via gossip among all nodes — there is no separate metadata service, trading a moving part for eventual convergence delay after topology changes.
 - **Elastic Database Tools (Azure SQL)** stores shard maps in a dedicated **Shard Map Manager** database, queried by the client-side `Microsoft.Azure.SqlDatabase.ElasticScale` library.
 
@@ -607,7 +607,7 @@ sequenceDiagram
 - **Multi-tenant SaaS platforms** (HR systems, CRM, order management) partition by `tenantId` (often composited with a time bucket) to isolate tenants, attribute cost accurately, and support per-tenant compliance/residency requirements.
 - **E-commerce product catalogs** partition by `productId` or `categoryId`, with a global secondary index on attributes like SKU or brand to support cross-catalog search without scanning every partition.
 - **IoT/telemetry platforms** partition by `deviceId` composited with a time bucket, so both "recent readings for device X" (single-partition) and long-term storage growth (bucketed, bounded partition size) are handled correctly.
-- **Financial transaction systems** partition by `accountId`, aligning the dominant "transactions for account X" query with a single partition while relying on distributed transaction patterns ([Distributed Transactions](../Phase-02/05_Distributed_Transactions.prompt.md)) for the rarer cross-account transfer.
+- **Financial transaction systems** partition by `accountId`, aligning the dominant "transactions for account X" query with a single partition while relying on distributed transaction patterns ([Distributed Transactions](../Phase-02/05_Distributed_Transactions.md)) for the rarer cross-account transfer.
 - **Streaming event pipelines** (Kafka/Event Hubs) partition by an entity key (`userId`, `deviceId`) to preserve per-entity ordering while parallelizing overall throughput across partitions.
 
 ---
@@ -663,32 +663,50 @@ This chapter's partition-key design discipline, rebalancing runbook, and hot-par
 ## Interview Questions
 
 1. What is the difference between range, hash, and directory-based partitioning?
+   **A:** Range partitioning assigns contiguous key ranges to partitions (good for range scans, vulnerable to hotspots on monotonic keys); hash partitioning distributes keys evenly via a hash function (good load distribution, poor range-scan locality); directory-based partitioning uses an explicit lookup table mapping keys to partitions, giving full placement flexibility at the cost of an extra lookup hop and a potential directory bottleneck.
 2. Why does a naive `hash(key) % N` scheme break when nodes are added or removed?
+   **A:** Changing N changes the result of `key % N` for nearly every key, forcing almost the entire dataset to be remapped and physically moved on every scale event — consistent hashing exists specifically to avoid this by only remapping a small fraction of keys when N changes.
 3. What is a hot partition, and what are three ways to mitigate one?
+   **A:** A hot partition is one receiving disproportionately more traffic or data than its peers, becoming a bottleneck regardless of overall cluster capacity; mitigations are salting the key (spreading a hot logical key across synthetic sub-keys), choosing a higher-cardinality partition key upfront, and using a composite/synthetic key that combines a coarse business key with a randomizing suffix.
 4. What is the difference between a logical partition and a physical partition in Cosmos DB?
+   **A:** A logical partition is all items sharing the same partition-key value, a unit the service guarantees to co-locate and manages transactionally; a physical partition is the actual underlying storage/compute unit Cosmos DB transparently maps many logical partitions onto and rebalances as data grows — application developers design against logical partitions, and Cosmos DB manages the physical mapping automatically.
 5. When would you choose a global secondary index over a local one, and what does it cost you?
+   **A:** Choose a global secondary index when queries frequently filter on an attribute other than the primary partition key and need efficient lookup without a full cross-partition scan; the cost is additional storage, write amplification (every write must also update the index), and typically eventual (not immediate) consistency between the base table and the index.
 6. Give an example of a composite/synthetic partition key and explain why it is needed.
+   **A:** A key like `{tenantId}_{hash(userId) % 10}` combines a natural business key (tenant) with a synthetic suffix to spread a single large tenant's data across multiple partitions — needed when a natural key alone (just tenantId) would create a hot partition for any large tenant.
 
 ## Staff Engineer Questions
 
 1. Walk through exactly what happens, step by step, when a node joins a Cassandra cluster using vnodes — what moves, and what does not?
+   **A:** The new node is assigned a set of small virtual token ranges scattered across the ring (not one large contiguous range), and only the data corresponding to those specific vnode ranges streams from the nodes that previously owned them to the new node; data belonging to token ranges not reassigned to the new node never moves, which is why vnodes distribute the rebalancing load across many existing nodes instead of overloading one or two neighbors.
 2. How would you detect a hot partition in production before it causes a customer-visible incident, using telemetry alone?
+   **A:** Monitor per-partition request rate and per-partition latency/throttling metrics (Cosmos DB exposes per-physical-partition RU consumption); a partition consistently near its throughput ceiling while sibling partitions sit idle is the leading indicator, visible well before customers experience throttled requests.
 3. Design a zero-downtime resharding plan for a system that cannot dual-write due to strict transactional consistency requirements.
+   **A:** Use a change-data-capture stream from the old shard scheme to incrementally backfill the new scheme while the old scheme remains authoritative, then perform a brief, coordinated cutover (a short read-only window) that switches the write path to the new scheme only once CDC backfill lag reaches zero — this avoids dual-write consistency risk by keeping a single source of truth throughout.
 4. How do you decide the right number of shards/partitions to provision for a new distributed table in Citus, given an expected future worker-node count?
+   **A:** Provision a shard count that's a multiple of the maximum expected future worker-node count (Citus recommends significantly more shards than current workers, e.g., 2-4x the eventual worker count) so future worker additions can be rebalanced by moving whole shards without ever needing to re-shard the table itself.
 
 ## Architect Questions
 
 1. For a new multi-tenant SaaS platform expecting both small and enterprise-scale tenants, propose a full partitioning strategy (key design, isolation model, resharding plan) and justify it in an ADR format.
+   **A:** Use a composite key of `{tenantId}_{subKey}` so small tenants share physical partitions cheaply while large tenants' sub-key spreads their data across multiple partitions automatically; isolate large "noisy" tenants onto dedicated partitions once their volume crosses a defined threshold, and plan resharding as an online, tenant-by-tenant migration rather than a global cutover, since tenants can be moved independently without a big-bang event.
 2. Compare Azure Cosmos DB, Citus, and Vitess as candidate platforms for a new horizontally-scaled OLTP workload, and produce a decision matrix with at least five criteria.
+   **A:** Compare on: consistency-model flexibility (Cosmos DB offers five explicit levels; Citus/Vitess follow their underlying Postgres/MySQL semantics), relational/join support (Citus and Vitess retain more SQL join capability within a co-located shard than Cosmos DB's partition-scoped model), operational model (Cosmos DB is fully managed; Citus and Vitess require more operational ownership), ecosystem fit (Vitess for MySQL-based estates, Citus for Postgres-based estates, Cosmos DB for multi-region NoSQL-first needs), and global distribution maturity (Cosmos DB has the most mature built-in multi-region support).
 3. How does your partitioning strategy change if the business requires EU data residency for a subset of tenants, and how would you audit compliance?
+   **A:** Pin those tenants' partition key ranges to region-scoped physical partitions hosted only in EU regions (using region-aware partition placement rather than a global hash), and audit compliance by querying the partition-to-region mapping directly and reconciling it against the tenant residency requirement list on a scheduled basis, not just at initial provisioning.
 4. Where does co-location (Citus-style) belong in your schema design process, and how do you prevent it from silently coupling two tables' scaling characteristics?
+   **A:** Co-locate only tables that are genuinely always queried together by the same distribution key (e.g., orders and order_items by customer_id), and document the co-location decision explicitly in the schema design review so a future schema change to one table's distribution column doesn't silently break the assumed co-location of the other.
 
 ## CTO Review Questions
 
 1. What is our exposure if our largest tenant grows 10x in the next 18 months — does our partitioning strategy scale, and what would break first?
+   **A:** If the partition key is a plain tenant ID with no sub-key sharding, a 10x single-tenant growth will hit a hot-partition throughput ceiling first — this should be stress-tested against the largest tenant's realistic growth trajectory now, not discovered reactively when the tenant actually grows.
 2. What would a full resharding of our primary transactional store cost us in engineering time, risk, and downtime, and when did we last rehearse it?
+   **A:** This should be a known, estimated number from an actual rehearsal (even a partial one on a staging environment), not a theoretical estimate — an unrehearsed resharding plan carries hidden risk that typically surfaces as extended downtime exactly when the business can least afford it (during a growth spike).
 3. Can we prove, on demand, which physical region holds a given customer's data, for a regulator or auditor?
+   **A:** This requires the partition-to-region mapping to be queryable and auditable directly, not inferred from application code or tribal knowledge — if the answer requires engineering investigation rather than a direct query, that's a compliance gap.
 4. What is our single largest source of cross-partition query cost today, and what is the plan to reduce it?
+   **A:** Cross-partition (fan-out) queries are typically the single largest hidden cost driver in a partitioned system since they multiply request-unit or I/O cost across every partition touched; identifying and either adding a targeted index or redesigning the partition key for the worst offender is usually the highest-leverage cost-reduction lever available.
 
 ---
 

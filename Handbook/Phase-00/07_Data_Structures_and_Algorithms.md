@@ -2,7 +2,7 @@
 
 > Part of the **Enterprise Data & AI Architecture Handbook** · Phase-00 — Foundations & Prerequisites · Chapter 07.
 > Estimated study time: **60 min reading + ~5h labs**.
-> **Prerequisite:** read [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md) first. Builds on [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md)'s B-tree/LSM-tree treatment and previews [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)'s partitioning chapter.
+> **Prerequisite:** read [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md) first. Builds on [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md)'s B-tree/LSM-tree treatment and previews [Distributed Systems Primer](08_Distributed_Systems_Primer.md)'s partitioning chapter.
 
 ---
 
@@ -29,7 +29,7 @@ By the end of this chapter you will be able to:
 5. **Explain roaring bitmaps, tries, and inverted indexes** and connect each to a concrete production system (Druid/Pinot/ClickHouse, IP routing/autocomplete, Elasticsearch/Lucene).
 6. **Compare consistent hashing and rendezvous hashing** for distributed sharding and select correctly based on operational complexity and rebalancing requirements.
 7. **Translate each structure into an Azure-hosted implementation** (Cosmos DB partitioning, Azure Cache for Redis, Delta Lake data-skipping, Azure Data Explorer indexes) and defend the choice with quantified memory/latency/error trade-offs in a design review.
-8. **Connect these structures to distributed systems design**, previewed here and developed fully in [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).
+8. **Connect these structures to distributed systems design**, previewed here and developed fully in [Distributed Systems Primer](08_Distributed_Systems_Primer.md).
 
 ---
 
@@ -663,7 +663,7 @@ Every stage of this flow is a direct instantiation of a structure covered in thi
 These structures directly support the Phase-20 capstone (see [Introduction](01_Introduction.md)):
 
 - **Query performance and cost modeling** for the capstone's data platform rests on correct use of data-skipping (Bloom filters/statistics), approximate aggregates, and index selection developed here.
-- **Distributed store sharding design** ([Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)) depends directly on the consistent-hashing/rendezvous-hashing reasoning in §7.13-§7.14.
+- **Distributed store sharding design** ([Distributed Systems Primer](08_Distributed_Systems_Primer.md)) depends directly on the consistent-hashing/rendezvous-hashing reasoning in §7.13-§7.14.
 - **Table-format and storage-engine choices** (Delta Lake/Iceberg compaction, RocksDB-backed state stores) rest on the B+ tree/LSM-tree/skip-list trade-offs developed here and in [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md).
 - **Search/observability platform design** for the capstone (log search, full-text lookup) rests on the inverted-index and trie reasoning in §7.11-§7.12.
 
@@ -675,26 +675,41 @@ In the capstone you will justify index/structure selection, approximate-aggregat
 
 **Engineer level**
 1. Explain the difference between separate chaining and open addressing for hash-table collision resolution.
+   **A:** Separate chaining stores colliding entries in a linked list (or small array) at each bucket, so lookup cost grows with chain length under collisions; open addressing probes for the next free slot within the table itself according to a probing sequence, avoiding extra pointer chasing but requiring careful handling of deletions and load-factor limits.
 2. Why is external merge sort necessary, and how does it work at a high level?
+   **A:** External merge sort is necessary when the dataset doesn't fit in memory; it works by sorting memory-sized chunks individually, writing each sorted chunk to disk, and then repeatedly merging the sorted chunks (a k-way merge) using only a small in-memory buffer per chunk, never requiring the whole dataset in RAM at once.
 3. What does a Bloom filter guarantee, and what does it not guarantee?
+   **A:** A Bloom filter guarantees no false negatives (if it says "not present," the item is definitely absent) but allows false positives (it may say "present" for an item that isn't) at a rate tunable by its size and hash-function count — it never guarantees exact membership.
 4. What is the difference between a B+ tree and a plain B-tree?
+   **A:** In a B+ tree, all actual data lives only in leaf nodes with internal nodes storing just navigation keys, and leaves are linked for fast sequential range scans; a plain B-tree stores data in internal nodes too, which makes range scans less efficient since they can't just walk a leaf-level linked list.
 5. Explain, in one sentence, what problem consistent hashing solves that naive modulo hashing does not.
+   **A:** Consistent hashing ensures that adding or removing a node only remaps a small fraction (roughly 1/N) of keys, whereas naive `hash(key) % N` remaps nearly all keys whenever N changes, causing a full cache/data reshuffle on every scale event.
 
 **Staff Engineer Questions**
 6. Walk through diagnosing a slow, spilling Spark sort/shuffle using spill-volume metrics and memory sizing.
+   **A:** Check the Spark UI's spill (memory) and spill (disk) metrics per stage — non-zero spill means the sort/shuffle's working set exceeded the executor's allotted memory fraction, so the fix is either increasing `spark.sql.shuffle.partitions` to shrink per-task working sets or increasing executor memory if the per-partition data volume genuinely requires it.
 7. Explain how you would choose between size-tiered and leveled LSM-tree compaction for a given workload's read/write ratio.
+   **A:** Size-tiered compaction minimizes write amplification (good for write-heavy workloads) but allows more overlapping files, increasing read amplification; leveled compaction bounds the number of files a read must check (better for read-heavy/latency-sensitive workloads) at the cost of higher write amplification from more frequent compaction.
 8. Design an approximate-aggregate pipeline (pre-aggregated, mergeable sketches) for a real-time "unique users" metric at billions-of-events scale.
+   **A:** Compute a HyperLogLog sketch per ingestion partition/time-window at write time, store the sketches (not raw events) as the queryable artifact, and merge sketches across partitions/windows at query time — since HLL sketches are mergeable, this avoids ever re-scanning raw events for a rollup query.
 9. Compare consistent hashing and rendezvous hashing, and justify which you would choose for a given operational-complexity constraint.
+   **A:** Consistent hashing requires maintaining a hash ring (or virtual-node structure) that must be kept in sync across clients; rendezvous hashing needs no shared state — each client independently computes the highest-scoring node for a key from just the node list — so choose rendezvous hashing when minimizing coordination/operational complexity matters more than the ring's slightly better cache-locality properties.
 
 **Architect Questions**
 10. Design a sharding strategy (partition key, hashing scheme, rebalancing plan) for a multi-tenant distributed store expected to grow 10x over two years.
+    **A:** Choose a high-cardinality partition key (tenant ID plus a sub-key to avoid single-tenant hot shards), use consistent hashing with virtual nodes so future node additions only remap a small key fraction, and plan rebalancing as an online, incremental background process rather than a big-bang migration.
 11. Define a platform-wide policy for when approximate aggregates are acceptable versus when exact computation is mandatory, and how error bounds are governed and disclosed.
+    **A:** Approximate aggregates (HLL, sketches) are acceptable for dashboards and operational metrics with a documented, business-approved error bound (e.g., ≤2%) disclosed in the UI; exact computation is mandatory for any financial or regulatory-reporting figure, and the boundary between the two must be an explicit, reviewed policy, not left to individual dashboard authors.
 12. Design the indexing strategy (Bloom filters, statistics, bitmap indexes, compaction strategy) for a large, mixed read/write analytical table, and justify each choice.
+    **A:** Use Bloom filters on high-cardinality join/lookup columns to skip files that can't match, column-level min/max statistics for range-predicate pruning, bitmap indexes on low-cardinality filter columns, and a leveled compaction strategy to bound the number of files a query must touch given the workload's mixed read/write ratio.
 
 **CTO Review Questions**
 13. What is our exposure to hash-based algorithmic-complexity denial-of-service vectors across externally-facing services, and what is the remediation posture?
+    **A:** Services using naive hash tables with a predictable hash function are vulnerable to an attacker crafting inputs that all collide, degrading lookups to $O(n)$; the remediation is using hash functions with a random per-process seed (as most modern language runtimes now do by default) and verifying this is actually enabled on externally-facing services, not assumed.
 14. Where are we using approximate aggregates in customer-facing or financial reporting, and is the error bound properly disclosed and approved?
+    **A:** This requires an actual audit of dashboard and reporting definitions — any approximate metric found feeding a financial or regulatory report without an explicit, approved error-bound disclosure is a compliance gap that needs immediate remediation, not just documentation after the fact.
 15. What would a full sharding-scheme migration (naive to consistent hashing, or vice versa) cost in engineering time and operational risk, and is it currently on the roadmap where needed?
+    **A:** A naive-to-consistent-hashing migration typically requires a dual-write/backfill period to avoid a big-bang cutover, costing real engineering time proportional to data volume and downstream consumer count; the CTO-level question is whether this cost has been estimated and prioritized against the ongoing cost of *not* migrating (full reshuffle pain on every scale event).
 
 ---
 
@@ -702,8 +717,11 @@ In the capstone you will justify index/structure selection, approximate-aggregat
 
 (Consolidated for interview prep — see items 6-9 above, plus:)
 - Explain how you would detect and resolve a hash-skew (hot-key) problem that consistent hashing alone does not solve.
+  **A:** Consistent hashing balances *key space*, not *key popularity* — detect hot keys via per-shard request-rate monitoring showing one shard disproportionately loaded despite even key-space distribution, and resolve by explicitly salting or replicating that specific hot key across multiple shards rather than expecting the hashing scheme to fix it.
 - Describe how you would validate that a Bloom filter index's false-positive rate has not silently degraded as a table's key cardinality has grown.
+  **A:** Track the filter's configured bits-per-key and expected-cardinality assumption against the table's actual, current cardinality — since a Bloom filter's false-positive rate rises sharply once actual entries exceed its sizing assumption, alert when growth crosses a threshold requiring the filter to be resized/rebuilt.
 - Contrast the memory/error trade-off of HyperLogLog versus a naive exact-count structure at a stated cardinality and error target.
+  **A:** HyperLogLog uses a fixed, small memory footprint (a few KB) regardless of cardinality to achieve a bounded standard error (commonly ~1-2%), while an exact-count structure (a hash set) grows memory linearly with cardinality — at billions of distinct values, HLL's memory advantage is measured in orders of magnitude in exchange for a small, well-characterized error.
 
 ---
 
@@ -711,7 +729,9 @@ In the capstone you will justify index/structure selection, approximate-aggregat
 
 (See items 10-12 above, plus:)
 - Produce an ADR for adopting HyperLogLog-based approximate distinct counts over exact counts for a platform's primary analytics dashboards.
+  **A:** See ADR-0006 below — it adopts HLL sketches specifically because exact `COUNT(DISTINCT)` latency had grown unsustainably with data volume, while explicitly retaining exact computation for financial/regulatory metrics where the approximation would be inappropriate.
 - Define the enterprise's data-structure/index-selection reference architecture (B+ tree vs. LSM-tree vs. bitmap vs. inverted index) mapped to workload archetypes, as a governed reference.
+  **A:** Publish a matrix mapping read-heavy/range-scan workloads to B+ trees, write-heavy ingestion to LSM-trees, low-cardinality categorical filtering to bitmap indexes, and full-text/search workloads to inverted indexes, so teams choose based on a governed reference rather than defaulting to whatever their database happens to use internally.
 
 ---
 
@@ -719,7 +739,9 @@ In the capstone you will justify index/structure selection, approximate-aggregat
 
 (See items 13-15 above, plus:)
 - Present the business case for investing in approximate-query infrastructure (sketch pipelines) versus continuing to run increasingly expensive exact aggregate queries as data volume grows.
+  **A:** Exact `COUNT(DISTINCT)` cost grows with data volume indefinitely, while a sketch pipeline's query-time cost stays roughly flat regardless of underlying data growth — the investment pays back the moment dashboard query cost/latency growth outpaces the one-time engineering cost of building the sketch pipeline.
 - Assess the business risk of an under-governed approximate metric being mistaken for an exact figure in a regulatory or financial context, and the controls in place to prevent it.
+  **A:** An approximate metric silently feeding a regulatory report is a genuine compliance exposure; the control is a mandatory metric-classification tag (exact vs. approximate with disclosed error bound) enforced in the metrics catalog, with automated checks blocking approximate metrics from regulatory-tagged reports.
 
 ---
 
@@ -753,4 +775,4 @@ In the capstone you will justify index/structure selection, approximate-aggregat
 - RocksDB documentation — *Compaction styles and tuning*, *Memtable implementations (skip list, hash-based)*.
 - Lucene documentation — *Postings list encoding and index structure internals*.
 - Google — *BigQuery HLL_COUNT functions documentation* (comparison-only reference for explicit sketch API design).
-- Handbook cross-references: [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).
+- Handbook cross-references: [Computer Science Fundamentals](02_Computer_Science_Fundamentals.md), [Storage Systems Fundamentals](05_Storage_Systems_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md).

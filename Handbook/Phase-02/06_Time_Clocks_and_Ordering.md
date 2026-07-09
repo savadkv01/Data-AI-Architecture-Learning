@@ -1037,46 +1037,72 @@ The capstone design exercise for Phase-02 should require the reader to design a 
 ## Interview Questions
 
 1. Why is `DateTime.UtcNow` usually the wrong API for measuring elapsed duration?
+   **A:** Wall-clock time can jump backward or forward (NTP corrections, manual adjustment, leap seconds), so subtracting two `UtcNow` readings can produce a negative or wildly inflated duration; a monotonic clock API (unaffected by wall-clock adjustments) is the correct tool for measuring elapsed time.
 2. What does happens-before mean in a distributed system?
+   **A:** Happens-before is a partial-order relation capturing genuine causal dependency — event A happens-before event B if A could have influenced B (e.g., A is a message send and B is its receipt, or both occur in sequence on the same process) — events with no such relation are considered concurrent.
 3. What guarantee does a Lamport clock provide, and what guarantee does it not provide?
+   **A:** A Lamport clock guarantees that if A happens-before B, then A's timestamp is less than B's; it does not provide the converse — two events can have comparable timestamps (one less than the other) without one actually happening-before the other, so it can't distinguish true causality from coincidental ordering.
 4. How do vector clocks detect concurrency?
+   **A:** Each process maintains a vector of counters (one per process) and includes its current vector with every event; two events are concurrent if neither vector dominates the other (each has at least one component greater than the other's), which precisely captures the absence of a causal relationship that a single Lamport timestamp cannot.
 5. What problem do hybrid logical clocks solve?
+   **A:** HLCs combine a physical wall-clock component (for human-meaningful, roughly-synchronized timestamps close to real time) with a logical counter component (to preserve causal ordering even when physical clocks are imprecise or skewed), giving both causality-respecting ordering and timestamps usable for human-facing purposes like "recently modified."
 6. What is the difference between event time and processing time?
+   **A:** Event time is when something actually occurred in the real world (e.g., when a mobile app recorded a click); processing time is when the pipeline actually processes that event — the two can diverge significantly for late-arriving data (a phone offline for hours before syncing), and business logic that requires correctness must use event time, not processing time.
 7. Why does partitioned streaming preserve order only within a partition?
+   **A:** A partition is processed by a single consumer/thread maintaining sequential order for messages within it, but different partitions are processed independently and in parallel with no ordering relationship between them — global ordering across partitions is not guaranteed unless the system adds an explicit mechanism to establish it.
 8. What is a watermark, and why is it necessary?
+   **A:** A watermark is a declared assertion that "no more events with a timestamp earlier than X are expected," letting a stream-processing engine know when it's safe to close a time window and emit results; it's necessary because without it, a window could theoretically wait forever for a late event that never arrives, or emit incomplete results too early if closed prematurely.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Design an Azure event pipeline for mobile clients that can upload data hours late without corrupting billing windows.
+   **A:** Use event-time-based windowing (not processing-time) with a watermark generous enough to accommodate the expected maximum client-side delay, and route events arriving after the watermark has passed to a separate late-data correction path that adjusts already-closed billing windows explicitly, rather than silently including or dropping them.
 2. Explain how you would prove whether two cross-region events are causally related or merely close in wall-clock time.
+   **A:** Compare their vector clocks or HLC timestamps rather than raw wall-clock timestamps — if one event's causal metadata explicitly incorporates or follows from the other's, they're causally related; if neither dominates, they're concurrent regardless of how close their wall-clock timestamps appear.
 3. Compare HLC, vector clocks, and commit timestamps for a metadata service replicated across regions.
+   **A:** HLC gives compact, human-meaningful timestamps with causality preservation for the common case, at lower storage/comparison cost than vector clocks; vector clocks give precise concurrent-vs-causal detection but grow with the number of replicas/processes tracked, becoming unwieldy at scale; simple commit timestamps (physical clock only) are cheapest but can misorder causally related events under clock skew — HLC is usually the practical middle ground for a replicated metadata service.
 4. How would you detect and mitigate a hot partition when per-entity ordering is required?
+   **A:** Detect via per-partition throughput/lag metrics showing one partition consistently hotter than peers; since per-entity ordering requires that entity's events stay on one partition, mitigate by choosing a higher-cardinality partition key upfront or splitting an overloaded entity's stream into sub-streams with their own internal sequencing if the entity itself can be decomposed.
 5. Describe how clock skew can create stale-writer bugs even when retries and idempotency are correct.
+   **A:** If a system uses wall-clock timestamps to decide "which write is newest" (last-writer-wins), a node with a skewed-ahead clock can have its older logical write incorrectly treated as "newer" than a genuinely later write from a node with an accurate clock — retries and idempotency prevent duplicate processing but do nothing to fix an ordering decision based on unreliable wall-clock comparison.
 6. What dashboards would you build to distinguish backlog latency from source lateness?
+   **A:** A dashboard tracking event-time-to-processing-time lag (source lateness) separately from queue/backlog depth and consumer lag (backlog latency) — conflating them hides whether a pipeline is slow because data arrives late at the source or because the pipeline itself has fallen behind processing data that arrived on time.
 
 ---
 
 ## Architect Questions
 
 1. Which workloads in your estate need event-time correctness, and which only need processing-time freshness?
+   **A:** Billing, financial reconciliation, and regulatory reporting need event-time correctness since they must reflect what actually happened when; operational dashboards and real-time monitoring often only need processing-time freshness since "close enough to now" is the actual requirement — conflating the two leads to either unnecessary complexity or incorrect financial results.
 2. Where should ordering be per partition, per workflow, or globally external?
+   **A:** Per-partition ordering suffices when all operations on a given entity route to the same partition; per-workflow ordering (via a saga/orchestrator) is needed when a business process spans multiple entities/partitions; globally external ordering (e.g., via Spanner's TrueTime or an external consensus service) is reserved for the rare case where cross-entity real-time ordering is a genuine business requirement, given its latency cost.
 3. Under what conditions would you approve vector clocks instead of HLC or simple version numbers?
+   **A:** Approve vector clocks only when the system genuinely needs to distinguish "concurrent and conflicting" from "one definitively happened before the other" across a bounded, small number of replicas (e.g., a CRDT-based multi-master store) — for most systems, HLC's simpler causal-plus-physical-time model is sufficient and vector clocks' growing overhead isn't justified.
 4. How do time semantics interact with transactional outbox, replay, and compensation patterns?
+   **A:** Outbox events should carry event-time metadata alongside their causal ordering so replay (reprocessing historical events) produces the same business outcome as the original processing; compensation logic must account for the possibility that a compensating action executes much later in processing time than the original event's event-time, and must be idempotent regardless of replay order.
 5. What governance policy prevents teams from reintroducing ambiguous `timestamp` fields?
+   **A:** Require every timestamp field in a shared schema to be explicitly named and documented as event-time or processing-time (never an ambiguous generic `timestamp`), enforced via schema-registry review — an ambiguous field name is how event-time/processing-time confusion silently creeps into downstream analytics.
 6. How will your multi-region failover design behave if clocks remain within operational tolerance but messages still arrive badly delayed?
+   **A:** Clock skew and message delay are separate failure modes — a design relying on HLC/vector clocks for causal correctness is resilient to modest clock skew, but severe message delay still requires a sufficiently generous watermark or explicit late-data handling path, since no clock discipline can make a genuinely late message arrive on time.
 
 ---
 
 ## CTO Review Questions
 
 1. Which customer or regulatory outcomes depend on event-time accuracy rather than near-real-time dashboard freshness?
+   **A:** Billing, SLA-credit calculations, and any regulatory reporting requiring an accurate "what happened when" record depend on event-time accuracy; dashboards showing "current state" are typically fine trading some event-time accuracy for processing-time freshness — conflating the two risks either incorrect bills or unnecessarily slow dashboards.
 2. What is the business cost of waiting for late events versus the cost of publishing incomplete results early?
+   **A:** This is a quantifiable trade-off specific to each workload — for billing, publishing early and later correcting is usually acceptable if correction is well-supported; for a one-time regulatory submission, waiting for a generous watermark to avoid ever needing a correction may be the safer, if slower, choice.
 3. How much platform complexity is justified for causal ordering or external consistency in this product line?
+   **A:** Only workloads with an actual demonstrated need for cross-entity causal guarantees justify the complexity and latency cost of vector clocks or externally consistent designs — most product lines are well served by simpler per-partition ordering plus HLC, and adding stronger guarantees "just in case" is often unjustified complexity.
 4. Can the organization reconstruct a disputed sequence of events without trusting one server's wall clock?
+   **A:** If reconstruction relies solely on a single server's local timestamp rather than causal metadata (HLC/vector clocks) or a durable, ordered event log, the answer is no — this is a real gap for any dispute-resolution or audit requirement and should be closed by ensuring causal ordering metadata is captured and retained.
 5. What governance mechanism ensures time semantics stay consistent as teams add new data products and services?
+   **A:** A schema-registry-enforced requirement that every new event schema explicitly classify its timestamp fields (event-time vs. processing-time) and a documented default clock strategy (HLC) for new services, so time-semantics consistency doesn't rely on each new team independently rediscovering the right approach.
 6. Where would a time-related failure most likely appear first: security, analytics, workflow correctness, or incident response?
+   **A:** Analytics and workflow correctness typically surface time-related failures first (a billing window silently including or excluding late data, a workflow step executing out of causal order), often well before the issue becomes visible enough to trigger an incident-response process — proactive event-time monitoring catches these before they escalate.
 
 ---
 

@@ -554,41 +554,55 @@ Tracing a single proposal from submission to enforced outcome illustrates how th
 
 ## Capstone Integration
 
-This chapter's tiered ARB/RFC process, policy-as-code guardrails, and exception/debt register directly operationalize the enterprise-wide principles and reference architectures established in [Enterprise Architecture Foundations](01_Enterprise_Architecture_Foundations.md#core-concepts) — governance is how those principles actually constrain what gets built. The next chapter, [Architecture Decision Records](03_Architecture_Decision_Records.prompt.md), formalizes the point-in-time decision artifact this chapter's RFC and ARB processes feed directly into. Later phases' platform engineering and DataOps chapters (Phase-09) build directly on this chapter's golden-path and guardrail concepts, applied specifically to data pipeline and MLOps scaffolding. In the handbook's capstone (Phase-20), the governance model designed here — tiered intake, guardrail coverage, and a live exception register — is the operating model used to justify and govern the capstone reference platform's own architecture decisions.
+This chapter's tiered ARB/RFC process, policy-as-code guardrails, and exception/debt register directly operationalize the enterprise-wide principles and reference architectures established in [Enterprise Architecture Foundations](01_Enterprise_Architecture_Foundations.md#core-concepts) — governance is how those principles actually constrain what gets built. The next chapter, [Architecture Decision Records](03_Architecture_Decision_Records.md), formalizes the point-in-time decision artifact this chapter's RFC and ARB processes feed directly into. Later phases' platform engineering and DataOps chapters (Phase-09) build directly on this chapter's golden-path and guardrail concepts, applied specifically to data pipeline and MLOps scaffolding. In the handbook's capstone (Phase-20), the governance model designed here — tiered intake, guardrail coverage, and a live exception register — is the operating model used to justify and govern the capstone reference platform's own architecture decisions.
 
 ---
 
 ## Interview Questions
 
 1. What is the difference between a guardrail and a gate, and give one example of each.
+   **A:** A guardrail is a preventive, automated control that makes the wrong path impossible or hard by default (e.g., an Azure Policy that blocks deploying a public-endpoint storage account); a gate is a manual, point-in-time approval checkpoint (e.g., an ARB sign-off before production deployment) — guardrails scale without human bottleneck, gates don't.
 2. What are the four rings of a Tech Radar, and what does it mean for a technology to be in "Hold"?
+   **A:** Adopt, Trial, Assess, and Hold; "Hold" means the organization recommends *not* starting new work with that technology — either because it's being deliberately deprecated or because it underperformed expectations — without necessarily forcing an immediate migration of existing usage.
 3. Why does an architecture exception need an expiry date?
+   **A:** Without an expiry date, an exception granted under deadline pressure quietly becomes permanent, unreviewed technical debt; an expiry date forces a future decision point where the exception must be either remediated or explicitly re-justified and re-approved.
 4. What is the purpose of an RFC process, and how does it differ from an ARB meeting?
+   **A:** An RFC is a written proposal that captures context, options, and a recommendation for asynchronous review and comment before a decision; an ARB meeting is the synchronous forum where a decision is actually made — the RFC front-loads the thinking so the ARB meeting is a fast confirmation, not a first-encounter debate.
 5. What is a "golden path," and why must it be easier to use than the alternative?
+   **A:** A golden path is a pre-approved, supported, paved-road way of accomplishing a common task (e.g., a Terraform module for a standard AKS cluster) that comes bundled with governance compliance by default; it must be easier than the alternative or engineers will route around it, silently reintroducing the ungoverned paths it was meant to replace.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Your team's golden path template has fallen out of date (references a deprecated Azure service). How do you prioritize fixing it against other platform work, and what signals would tell you it's urgent?
+   **A:** Prioritize it high if teams have started routing around the stale template (a leading indicator of governance erosion) or if the deprecated service has an announced retirement date; the urgency signal is usage-drop-off on the golden path combined with a hard deprecation deadline, not just "it's old."
 2. How would you design a tiering questionnaire that reliably routes proposals to the correct governance tier without requiring an architect to manually triage every submission?
+   **A:** Build a short, structured questionnaire keyed to objective risk signals (data classification touched, cross-team dependency, new-technology introduction, cost threshold) that deterministically maps to a tier, with manual architect triage reserved only for proposals the questionnaire flags as ambiguous.
 3. A new Azure Policy guardrail is generating a high rate of false-positive denials. Walk through how you would diagnose and safely roll it back or fix it without disabling the underlying standard.
+   **A:** Switch the policy to "audit" mode first to quantify the real false-positive rate without blocking anyone, examine the denied requests for a common pattern the policy logic missed, fix the policy definition, and only re-enable "deny" mode once the audit-mode false-positive rate is acceptably low.
 
 ---
 
 ## Architect Questions
 
 1. Design a full governance operating model (ARB charter, RFC template, tiering criteria, golden path catalog, policy-as-code strategy, exception process) for an organization with 40 engineering teams and no existing formal governance. Justify each component's scope.
+   **A:** Start with a minimal ARB charter covering only Tier-1 (cross-team, high-blast-radius) decisions, a lightweight one-page RFC template, an objective tiering questionnaire, a small initial golden-path catalog covering the 2-3 most common infrastructure patterns, policy-as-code enforcing only the highest-risk guardrails first, and a time-boxed exception process — scope everything minimally at first because over-engineering governance for an organization with no prior formal process guarantees rejection.
 2. How would you measure whether your organization's shift from gate-heavy to guardrail-heavy governance actually improved outcomes, not just delivery speed? What metrics would you distrust and why?
+   **A:** Measure both delivery speed (lead time) and outcome quality (production incident rate, security-finding rate) together, since speed alone can mask a shift that simply moved risk downstream; distrust "ARB meetings held per month" as a vanity metric since fewer gate meetings could mean either efficient guardrails or ungoverned drift.
 3. A newly acquired business unit has its own, incompatible governance process (different ARB, different standards). Design an integration approach that avoids both a disruptive big-bang replacement and a permanent parallel-process problem.
+   **A:** Run both governance processes in parallel initially with a defined, time-boxed harmonization roadmap (shared Tier-1 criteria first, golden-path catalog merger second, single ARB last), rather than either forcing immediate compliance or letting the parallel process persist indefinitely by default.
 
 ---
 
 ## CTO Review Questions
 
 1. What percentage of our architectural changes are covered by automated guardrails versus manual review, and is that ratio trending in the right direction?
+   **A:** This requires actually instrumenting the governance pipeline to measure it — a healthy trend is manual-review percentage decreasing over time as more common patterns get codified into guardrails/golden paths, freeing architect time for genuinely novel decisions.
 2. How many open architecture exceptions do we currently carry, how old is the oldest one, and what is the plan to close it?
+   **A:** This should be answerable from a tracked exception register, not estimated; an old, undated, or forgotten exception is exactly the "permanent unreviewed technical debt" the expiry-date discipline exists to prevent, and its presence signals a governance process gap.
 3. If our delivery volume doubled next year, would our current governance model scale, or would it become the bottleneck? What is the single highest-leverage investment to prevent that?
+   **A:** A gate-heavy model (manual ARB review for everything) does not scale linearly with delivery volume and becomes the bottleneck first; the highest-leverage investment is converting the highest-volume, lowest-risk decision categories into automated guardrails/golden paths before volume doubles, not adding more architects to the review queue.
 
 ---
 
@@ -612,4 +626,4 @@ This chapter's tiered ARB/RFC process, policy-as-code guardrails, and exception/
 - Skelton, M., & Pais, M. (2019). *Team Topologies.* IT Revolution Press. (Platform-as-a-product and golden-path thinking.)
 - Humble, J., & Farley, D. (2010). *Continuous Delivery.* Addison-Wesley. (Guardrail-style automated quality gates in the deployment pipeline.)
 - Cunningham, W. (1992). *The WyCash Portfolio Management System* — the original "technical debt" metaphor.
-- Next chapter: [Architecture Decision Records](03_Architecture_Decision_Records.prompt.md) — formalizing the point-in-time decision artifact this chapter's ARB and RFC processes produce.
+- Next chapter: [Architecture Decision Records](03_Architecture_Decision_Records.md) — formalizing the point-in-time decision artifact this chapter's ARB and RFC processes produce.

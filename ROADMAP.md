@@ -65,14 +65,14 @@ _Design secure, scalable cloud foundations with Azure as the primary platform._
 
 ### Phase-04 — Storage Systems & Table Formats  _( Weeks 15-17 )_
 _Understand file formats and open table formats that define the lakehouse._
-  - [ ] Phase-04/01 — File Formats: Parquet, ORC, Avro  →  generates `File_Formats.md`
-  - [ ] Phase-04/02 — Columnar Storage Internals  →  generates `Columnar_Storage_Internals.md`
-  - [ ] Phase-04/03 — Object Storage and Data Lakes  →  generates `Object_Storage_and_Data_Lakes.md`
-  - [ ] Phase-04/04 — Delta Lake  →  generates `Delta_Lake.md`
-  - [ ] Phase-04/05 — Apache Iceberg  →  generates `Apache_Iceberg.md`
-  - [ ] Phase-04/06 — Apache Hudi  →  generates `Apache_Hudi.md`
-  - [ ] Phase-04/07 — Table Format Comparison and Selection  →  generates `Table_Format_Comparison.md`
-  - [ ] Phase-04/08 — Compression and Encoding Strategies  →  generates `Compression_and_Encoding.md`
+  - [✅] Phase-04/01 — File Formats: Parquet, ORC, Avro  →  generates `File_Formats.md`
+  - [✅] Phase-04/02 — Columnar Storage Internals  →  generates `Columnar_Storage_Internals.md`
+  - [✅] Phase-04/03 — Object Storage and Data Lakes  →  generates `Object_Storage_and_Data_Lakes.md`
+  - [✅] Phase-04/04 — Delta Lake  →  generates `Delta_Lake.md`
+  - [✅] Phase-04/05 — Apache Iceberg  →  generates `Apache_Iceberg.md`
+  - [✅] Phase-04/06 — Apache Hudi  →  generates `Apache_Hudi.md`
+  - [✅] Phase-04/07 — Table Format Comparison and Selection  →  generates `Table_Format_Comparison.md`
+  - [✅] Phase-04/08 — Compression and Encoding Strategies  →  generates `Compression_and_Encoding.md`
 
 ### Phase-05 — Modern Data Engineering & Lakehouse  _( Weeks 18-22 )_
 _Build the lakehouse and batch platforms at the heart of modern data engineering._

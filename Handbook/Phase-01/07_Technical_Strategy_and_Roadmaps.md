@@ -26,12 +26,13 @@ By the end of this chapter you will be able to:
 
 1. **Differentiate vision, strategy, and roadmap** and explain why confusing them leads to poor planning.
 2. **Define North Star metrics and guardrail metrics** that make a technical strategy measurable.
-3. **Evaluate build vs buy vs partner choices** using business differentiation, risk, and operating-model criteria.
+3. **Evaluate build vs buy vs partner choices** using business differentiation, risk, and operating-model criteria, positioned explicitly with a Wardley map.
 4. **Sequence a multi-year roadmap** around dependencies, capability gaps, and portfolio bets rather than project enthusiasm.
-5. **Communicate a strategy to executives** in business terms without losing technical rigor.
-6. **Balance innovation and reliability** in funding and roadmap design.
-7. **Implement a strategy repository and reporting workflow on Azure** with traceability from capability to initiative to runtime asset.
-8. **Recognize the anti-patterns that turn roadmaps into fiction** and know how to correct them.
+5. **Apply Team Topologies** to align stream-aligned, platform, enabling, and complicated-subsystem teams to roadmap dependencies.
+6. **Communicate a strategy to executives** in business terms without losing technical rigor.
+7. **Balance innovation and reliability** in funding and roadmap design.
+8. **Implement a strategy repository and reporting workflow on Azure** with traceability from capability to initiative to runtime asset.
+9. **Recognize the anti-patterns that turn roadmaps into fiction** and know how to correct them.
 
 ---
 
@@ -141,7 +142,20 @@ This choice should be made with more structure than `our engineers prefer to bui
 
 For data and AI platforms, many good strategies deliberately mix all three: buy platform primitives, build domain-specific products and orchestration, and partner where specialized external capability accelerates adoption without giving away strategic control.
 
-### 7.4 Sequencing, dependencies, and portfolio bets
+### 7.4 Wardley mapping for build/buy/partner positioning
+
+Build-versus-buy is easier to defend when it is derived from an explicit map rather than a preference. **Wardley mapping** (Simon Wardley) plots components on two axes: the **y-axis** is value chain position (how visible a component is to the end user, from invisible infrastructure at the bottom to user-facing need at the top), and the **x-axis** is evolution (how commoditized the component is, from genesis/novel through custom-built and product, to commodity/utility).
+
+Applied to the running enterprise AI platform example:
+
+- **Genesis/novel (build):** a proprietary retrieval-ranking heuristic tuned to the enterprise's specific customer-interaction domain. No vendor sells this; it is genuinely differentiating, so it belongs in the "build" quadrant.
+- **Custom-built (build, but watch for commoditization):** the retrieval-orchestration service itself is custom today, but as vendor "agent frameworks" mature, parts of this may migrate toward product or commodity within the roadmap horizon — the map should be redrawn periodically, not treated as a one-time artifact.
+- **Product (buy or partner):** the LLM itself (Azure OpenAI) and the vector search engine (Azure AI Search) are products — evolving fast, but available off the shelf; building either in-house would be a strategic distraction from the actual differentiator.
+- **Commodity/utility (buy):** compute, object storage, identity, and networking are commodity infrastructure; the map makes it visually obvious that these should never appear in a "build" conversation.
+
+The strategic value of the map is that it forces the same build/buy/partner decision from section 7.3 to be justified by *where a component sits on the evolution axis*, not by team preference: components sliding toward commodity should be actively migrated off custom build, and components still in genesis that a vendor claims to sell "out of the box" deserve scrutiny before being bought as if they were mature product.
+
+### 7.5 Sequencing, dependencies, and portfolio bets
 
 A roadmap is a dependency graph disguised as a timeline. Strategies fail when they pretend initiatives are independent when they are not. In the running example, enterprise AI rollout depends on:
 
@@ -158,7 +172,20 @@ Roadmaps become much more realistic when initiatives are classified as:
 - **Exploratory bets:** time-boxed experiments with explicit kill or scale criteria.
 - **Reliability bets:** reduce risk, improve control, or retire technical debt.
 
-### 7.5 Communicating strategy to executives
+### 7.6 Team Topologies: aligning organization to strategy
+
+A roadmap that ignores team structure will stall on Conway's Law regardless of how sound the sequencing is. **Team Topologies** (Skelton and Pais) defines four team types and three interaction modes that a technical strategy should map explicitly against its roadmap waves:
+
+- **Stream-aligned teams** own an end-to-end flow of business value (for the running example, the team that owns the customer-support-copilot experience end to end) and should be the majority team type.
+- **Platform teams** provide self-service capabilities (the data platform team providing governed lakehouse zones, the AI platform team providing a certified retrieval/grounding service) that stream-aligned teams consume without needing to become experts in the underlying complexity.
+- **Enabling teams** temporarily help a stream-aligned team acquire a missing capability (e.g. a short-lived embedded team helping the support-copilot team adopt evaluation and safety-testing practices) and should disband or rotate once the capability is absorbed.
+- **Complicated-subsystem teams** own a component that requires deep specialist knowledge disproportionate to the rest of the system (for example, a team owning a custom ranking model that needs specialized ML expertise most stream-aligned teams should not need to acquire).
+
+The three interaction modes — **collaboration** (temporary, high-bandwidth joint work), **X-as-a-Service** (one team consumes another's capability with minimal interaction), and **facilitating** (an enabling team helps without doing the work for the other team) — should be assigned explicitly per roadmap dependency identified in section 7.5. A foundational bet delivered by a platform team to a stream-aligned team should default to X-as-a-Service once the capability stabilizes; treating every platform dependency as ongoing collaboration is a common cause of platform teams becoming a bottleneck instead of an accelerant.
+
+The strategic point: a roadmap wave that assumes a stream-aligned team will independently operate a deeply specialized retrieval-ranking or model-training capability is really a hidden request for a complicated-subsystem team that does not yet exist — naming that gap early prevents the roadmap from silently depending on organizational structure it has not actually funded.
+
+### 7.7 Communicating strategy to executives
 
 Executive communication should answer five questions quickly:
 
@@ -170,7 +197,7 @@ Executive communication should answer five questions quickly:
 
 Executives generally do not need service-by-service architecture detail. They do need a defensible narrative connecting capability priorities, cost profile, risk posture, and roadmap waves.
 
-### 7.6 Balancing innovation and reliability
+### 7.8 Balancing innovation and reliability
 
 Mature technical strategy treats reliability, governance, migration, and platform controls as first-class roadmap items rather than work that should somehow happen in the margins. A practical portfolio split might look like:
 
@@ -180,7 +207,7 @@ Mature technical strategy treats reliability, governance, migration, and platfor
 
 The exact ratio depends on estate maturity. The principle does not: innovation without reliability compounds risk, while reliability without new capability eventually starves growth.
 
-### 7.7 Example ADR for a strategy choice
+### 7.9 Example ADR for a strategy choice
 
 ```markdown
 # ADR-0073: Build domain orchestration and retrieval, buy commodity workflow platform
@@ -855,34 +882,48 @@ The direct link back to [Business Capability Modeling](06_Business_Capability_Mo
 ## Interview Questions
 
 1. What is the difference between vision, strategy, and roadmap?
+   **A:** Vision is the aspirational future end-state (where we're going and why it matters); strategy is the coherent set of choices about how to get there (what we will and won't do); a roadmap is the sequenced, time-boxed plan translating strategy into executable initiatives — vision answers "why," strategy answers "what/how," roadmap answers "when."
 2. What makes a North Star metric useful, and why are guardrails necessary?
+   **A:** A North Star metric is useful when it's a single, measurable proxy for genuine customer/business value that the whole organization can rally around; guardrails are necessary because optimizing a single metric in isolation can produce perverse outcomes (e.g., maximizing engagement at the expense of trust), so counter-metrics bound the optimization from going too far in a harmful direction.
 3. How do you decide whether to build, buy, or partner for a technical capability?
+   **A:** Build when the capability is a genuine competitive differentiator worth owning long-term; buy when it's commodity functionality available as a mature product and building it internally would waste differentiation-focused engineering time; partner when the capability requires specialized expertise or scale you don't have and won't develop faster than a partner already possesses.
 4. Why should reliability work appear explicitly in a strategy roadmap?
+   **A:** Reliability investment (reducing tech debt, improving observability, hardening failure paths) has no natural champion competing against visible feature work for prioritization; if it isn't explicitly funded as a roadmap theme, it gets perpetually deprioritized until an incident forces it in reactively and expensively.
 5. How do capability priorities improve roadmap quality for data and AI initiatives?
+   **A:** Anchoring roadmap themes to capability heat-map priorities ensures data/AI investment targets genuine business-value gaps rather than whatever technology is currently fashionable, giving the roadmap a defensible business rationale instead of a technology-driven one.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Your leadership wants to launch AI copilots quickly, but the governed retrieval layer and consent domain are weak. How would you argue for a different sequence without sounding like you are simply slowing the team down?
+   **A:** Frame it in terms of the business risk of the fast path (a copilot surfacing incorrect or non-consented data is a trust and regulatory incident, not just a bug) versus the modest sequencing delay of first hardening retrieval and consent — the argument is risk-adjusted speed, not "no," and should come with a concrete, time-boxed plan for the foundational work.
 2. A roadmap contains ten major initiatives in the same two quarters and claims all are high priority. How would you expose whether the plan is unrealistic or just poorly expressed?
+   **A:** Ask for the explicit trade-off: if capacity only allows for six, which four get cut and why — if leadership can't answer, "all high priority" really means "unprioritized," and forcing that ranking exercise exposes the plan's actual feasibility.
 3. How would you detect that your organization is buying too much of its differentiating logic from vendors or, conversely, building too much commodity infrastructure internally?
+   **A:** Audit the build/buy/partner classification against actual competitive differentiation — vendor-purchased capabilities that directly define the customer's reason to choose you signal over-reliance on buy, while internally built commodity infrastructure (a bespoke queueing system where a managed service would do) signals wasted differentiation-focused engineering capacity.
 
 ---
 
 ## Architect Questions
 
 1. Design a three-year technical strategy for customer operations, domain data products, retrieval, and AI-assisted workflows. Which themes would you fund first, and why?
+   **A:** Fund domain data products and governed retrieval first, since AI-assisted workflows and customer-operations copilots are only as trustworthy as the data foundation beneath them — sequencing AI-facing features before the data foundation is the most common cause of expensive rework and trust incidents.
 2. How would you connect capability heat maps, domain ownership, and roadmap waves so architecture governance can challenge the plan with evidence?
+   **A:** Require every roadmap wave to cite the capability heat-map score and domain-ownership status it depends on, so governance review can immediately flag a wave proposing to build on top of a low-maturity capability or an unowned data domain before commitment, not after.
 3. When a strategic roadmap is under pressure from both executive urgency and platform fragility, how do you decide what to defer without losing the long-term architecture?
+   **A:** Protect the foundational, hard-to-reverse architectural investments (data-domain ownership, core reliability work) from deferral, and instead defer discretionary, easily-resumed feature work — deferring the wrong category trades short-term urgency for long-term architectural debt that's far more expensive to unwind later.
 
 ---
 
 ## CTO Review Questions
 
 1. Can we explain our next two years of technology spend as a small number of coherent bets tied to capability outcomes, or only as a list of projects?
+   **A:** If the roadmap reads as an unranked list of unrelated projects rather than a small number of named strategic bets each tied to a capability outcome, the organization lacks a real strategy and is instead executing tactically without a unifying rationale.
 2. Which strategic themes currently depend on weak data ownership, weak observability, or weak vendor posture, and what is the cost of ignoring those dependencies?
+   **A:** Any strategic theme resting on a foundation flagged weak in the capability heat map carries hidden execution risk that compounds silently — the cost of ignoring it is usually a mid-roadmap discovery that the "quick" AI or analytics initiative actually requires months of foundational data work no one budgeted for.
 3. If market conditions forced us to cut or redirect 20 percent of current roadmap spend, do we know which bets to kill first and why?
+   **A:** A roadmap genuinely tied to capability priority and business value can answer this immediately by ranking themes against those same criteria; if the answer requires an ad hoc emergency prioritization exercise, the roadmap's stated priorities were never real in the first place.
 
 ---
 

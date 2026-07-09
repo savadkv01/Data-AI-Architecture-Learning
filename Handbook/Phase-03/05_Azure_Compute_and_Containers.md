@@ -129,6 +129,17 @@ Azure Functions is best for event-driven execution, glue logic, scheduled tasks,
 
 Serverless compute optimizes for burst elasticity, consumption economics, and reduced platform toil. Cluster compute optimizes for runtime flexibility, local ecosystem control, and broad container orchestration patterns. The enterprise mistake is treating them as philosophical camps. They are tools for different shapes of work.
 
+### Data-Platform Compute Runtimes
+
+General-purpose compute guidance is not sufficient for a data and AI estate. Data engineering, analytics, and ML teams choose among a distinct family of managed runtimes that sit on top of, or alongside, the general compute spectrum:
+
+- **Azure Databricks compute** splits into job clusters (ephemeral, pipeline-scoped, cheapest per-DBU for scheduled ETL), all-purpose clusters (shared, interactive, most expensive per-DBU, meant for development and ad hoc exploration), and serverless SQL or serverless job compute (Databricks-managed capacity with no cluster sizing or warm-up decisions, priced at a premium for convenience and near-instant start). The default posture should be job clusters for production pipelines, serverless for unpredictable interactive or BI load, and all-purpose clusters capped by policy so they are not left running as an expensive shared workspace.
+- **Synapse Spark pools** provide Azure-native Spark compute integrated with Synapse pipelines and serverless SQL pools. They are the right choice when a workload is already committed to the Synapse control plane, needs tight integration with Synapse pipelines or serverless SQL on the same lake, or must minimize the number of distinct data platforms under governance. They trail Databricks on runtime feature velocity (Photon-equivalent acceleration, Unity Catalog-equivalent governance) and should not be assumed to be a like-for-like substitute.
+- **Azure ML Compute** covers training clusters (autoscaling CPU or GPU node pools scoped to a workspace, billed only while jobs run) and managed online endpoints or batch endpoints for inference. Training clusters are the default for experimentation and scheduled training jobs that do not need Databricks' data-engineering ecosystem; managed endpoints are the default for model-serving when the team wants Azure to own scaling, blue-green rollout, and autoscale-to-zero without hand-building that on AKS.
+- **GPU pool guidance** across these runtimes follows the same rule stated in GPU Compute below: isolate GPU node pools or clusters by quota and workload class (training, batch inference, online inference, experimentation), and treat Databricks GPU clusters, Synapse Spark GPU pools, and Azure ML GPU compute as competing consumers of the same regional GPU quota, not independent budgets.
+
+The selection question is rarely "AKS or Databricks." It is which of these managed data-runtime services already covers the workload before a general-purpose compute platform is built underneath it by hand.
+
 ### GPU Compute for AI Workloads
 
 GPU compute architecture should separate:
@@ -243,6 +254,12 @@ Compute selection should start with workload shape and only then map to services
 | Distributed batch or checkpointable workers | VMSS, AKS spot pools, or Container Apps jobs | Scale-out economics and disposability |
 | Low-latency custom model inference | AKS GPU pool or specialized Azure AI serving platform | Fine-grained control over runtime and traffic |
 | Experimental fine-tuning or training | Dedicated GPU VMs or isolated AKS GPU node pools | Quota, drivers, and spend need containment |
+| Scheduled ETL or data-engineering pipeline | Databricks job clusters (or Synapse Spark pools if already Synapse-committed) | Cheapest per-DBU option; ephemeral and pipeline-scoped |
+| Interactive analytics or BI-driven ad hoc queries | Databricks serverless SQL or serverless compute | Near-instant start, no cluster sizing, premium price accepted for convenience |
+| Shared interactive data-science development | Databricks all-purpose clusters, capped by cluster policy | Needed for exploration, but must not become an always-on shared cost sink |
+| Model training or scheduled retraining jobs | Azure ML Compute training clusters (CPU or GPU) | Autoscaling, billed only while running, workspace-scoped |
+| Managed model serving without hand-built autoscaling | Azure ML managed online/batch endpoints | Azure owns scaling, rollout, and scale-to-zero |
+| ETL or training batch jobs on Container Apps | Container Apps Jobs | Event- or schedule-triggered container execution without owning a cluster or a Databricks/Synapse workspace |
 
 The key is to avoid treating AKS as the default answer and Functions as the default shortcut. Both can be right. Both can be very expensive mistakes when misapplied.
 
@@ -854,46 +871,78 @@ The result should be a runtime estate where each compute abstraction is used int
 ## Interview Questions
 
 1. When are VMs still the right answer in Azure?
+   **A:** VMs are still right for legacy applications requiring specific OS-level control or licensing that can't be containerized, workloads needing specialized hardware access not exposed by a managed service, and lift-and-shift migrations where re-architecting to a managed platform isn't yet justified by the business case.
 2. What is the practical difference between AKS and Container Apps?
+   **A:** AKS gives full Kubernetes API access and control (custom scheduling, CRDs, sidecar patterns, fine-grained networking) at the cost of operating the control plane's complexity yourself; Container Apps is a simpler, serverless container platform built on Kubernetes/Dapr under the hood but abstracts away cluster management entirely, trading control for operational simplicity.
 3. Why should system and user node pools be separated in AKS?
+   **A:** System node pools run critical cluster add-ons (CoreDNS, metrics-server) and need protection from being starved or evicted by application workload scheduling pressure; separating user workloads onto their own node pools prevents an application's resource-hungry pod from destabilizing the cluster's own control components.
 4. When is Azure Functions a poor fit despite its operational simplicity?
+   **A:** Functions is a poor fit for long-running processes (exceeding the plan's execution time limits), workloads with unpredictable cold-start latency tolerance, or workloads needing persistent in-memory state across invocations — its serverless execution model assumes short, stateless, event-triggered work.
 5. How should spot capacity be governed in an enterprise?
+   **A:** Restrict spot VM/node usage to workloads genuinely tolerant of sudden eviction (batch processing, non-critical background jobs) via explicit policy, and require production/customer-facing workloads to run on standard (non-spot) capacity — ungoverned spot usage on latency-sensitive workloads risks unpredictable customer-visible failures.
 6. What makes GPU compute architecture different from generic CPU compute?
+   **A:** GPU compute requires specialized VM SKUs often with limited regional availability and quota, has a fundamentally different cost model (expensive, often billed by the hour regardless of utilization efficiency), and needs workload scheduling aware of GPU-specific constraints (memory-per-GPU, multi-GPU communication topology) that generic CPU autoscaling doesn't account for.
 7. How do you explain serverless versus cluster compute trade-offs to a product team?
+   **A:** Serverless means you don't manage servers at all and pay per execution, ideal for spiky, event-driven work but with less control over cold starts and long-running processes; cluster compute (AKS) gives you full control and can be more cost-efficient at sustained high utilization, but you own operating the cluster — the trade-off is operational simplicity versus control and cost efficiency at scale.
 8. What signals tell you that an organization is using Kubernetes as fashion rather than engineering?
+   **A:** Adopting AKS for workloads that would run identically well on Container Apps or App Service, teams that can't articulate a specific Kubernetes-native feature they actually use, and clusters running with default configurations because no one has the expertise to actually leverage Kubernetes' advanced capabilities are all signals of adoption driven by resume-building or industry trend-following rather than genuine engineering need.
 
 ## Staff Engineer Questions
 
 1. How would you design a mixed-runtime platform that avoids both cluster sprawl and runtime sprawl?
+   **A:** Publish a small, decision-tree-based runtime selection guide (Container Apps as default, AKS only for genuine Kubernetes-native needs, Functions for event-driven short tasks) so teams converge on a small set of standard runtimes rather than each independently choosing based on familiarity, which is how both cluster sprawl and runtime sprawl happen.
 2. What criteria would you use to decide whether a new service belongs on Container Apps, AKS, or Functions?
+   **A:** Use Functions for short-lived, event-triggered, stateless work; Container Apps for standard containerized services needing simple autoscaling without Kubernetes-native features; AKS only when the workload genuinely needs a Kubernetes-specific capability (custom scheduler, DaemonSets, service mesh sidecar integration) that the simpler platforms can't provide.
 3. How would you isolate GPU demand so experimentation cannot starve production inference?
+   **A:** Use separate node pools or entirely separate clusters/subscriptions for GPU experimentation versus production inference, each with their own quota allocation, so a training job's GPU consumption can never contend with the quota production inference depends on.
 4. What autoscaling signals are appropriate for queue workers, online APIs, and inference services respectively?
+   **A:** Queue workers should scale on queue depth/message age; online APIs should scale on request latency or concurrent-connection count; inference services should scale on GPU/accelerator utilization or request-queue depth specific to the model-serving runtime — using CPU utilization uniformly across all three often produces the wrong scaling behavior for at least one of them.
 5. How would you design an AKS cluster boundary for multiple teams without creating a noisy shared platform?
+   **A:** Use dedicated node pools per team with resource quotas and network policies enforcing namespace isolation, and consider separate clusters entirely for teams with significantly different security or compliance requirements rather than relying solely on namespace-level soft isolation within one shared cluster.
 6. What migration path would you recommend for a large VM-based integration estate?
+   **A:** Containerize and migrate services incrementally starting with the least risky, most stateless integrations first, running the new containerized version in parallel with the legacy VM until validated, rather than attempting a big-bang migration of the entire estate simultaneously.
 7. How would you validate that a serverless design is acceptable before approving it for production?
+   **A:** Load-test the cold-start latency under realistic traffic patterns against the workload's actual latency SLO, and confirm the workload's execution duration and state requirements genuinely fit within the serverless platform's constraints — approving serverless without this validation risks discovering a cold-start SLA violation only in production.
 8. What observability signals must exist before approving a custom model-serving runtime on AKS?
+   **A:** GPU/accelerator utilization metrics, inference latency percentiles, request-queue depth, and model-version/rollout tracking — a custom serving runtime without these is effectively a black box that can't be safely operated or debugged when inference latency degrades.
 
 ## Architect Questions
 
 1. What is the enterprise default runtime policy and what exceptions are allowed?
+   **A:** Default to Container Apps for standard containerized workloads and Functions for event-driven short tasks; AKS requires an ADR documenting the specific Kubernetes-native capability needed, since AKS carries meaningfully more operational responsibility than the simpler managed alternatives.
 2. Which workload categories justify AKS, and which should be pushed toward more managed runtimes?
+   **A:** Workloads needing custom schedulers, service mesh, DaemonSets, or fine-grained multi-tenant resource isolation justify AKS; standard stateless APIs, background workers, and typical microservices should default to Container Apps unless a specific gap is identified.
 3. How should GPU quotas, budgets, and landing zones be governed across the enterprise?
+   **A:** Centralize GPU quota request and approval through a dedicated process given regional scarcity and cost, with budget alerts tied to actual GPU-hour consumption, and place GPU workloads in landing zones with quota isolated from CPU-only production workloads.
 4. When is it acceptable to keep a workload on VMs rather than forcing containerization?
+   **A:** When the workload has a specific OS-level dependency incompatible with containerization, or when the business case for the containerization migration effort doesn't outweigh its benefit for a workload nearing planned retirement — containerization for its own sake, without a concrete operational benefit, isn't worth the migration cost.
 5. How do you align compute choices with networking, security, and cost governance?
+   **A:** Ensure the compute-runtime selection guide references the same network-exposure defaults (private endpoints), identity model (managed identity), and cost-tagging requirements as the rest of the platform, so runtime choice doesn't inadvertently bypass other governance domains.
 6. What should be standardized globally for container images, identity, and deployment pipelines?
+   **A:** A base image registry with vulnerability scanning enforced, managed identity (not embedded secrets) as the default authentication mechanism, and a standard CI/CD pipeline template that all teams build from — these are high-leverage, low-customization-need standards worth enforcing globally.
 7. How do you decide whether a shared AKS platform or multiple domain-aligned clusters are the better organizational fit?
+   **A:** A shared platform amortizes operational cost across teams with similar, compatible requirements; domain-aligned separate clusters make sense when domains have genuinely different compliance, scaling, or availability requirements that a shared cluster's compromise configuration would poorly serve for at least one domain.
 8. What is your policy for spot capacity in production and non-production estates?
+   **A:** Allow spot capacity broadly in non-production/experimentation environments; restrict production spot usage to explicitly eviction-tolerant workload classes (batch, non-critical background processing) via policy, never for customer-facing latency-sensitive services.
 
 ## CTO Review Questions
 
 1. Are we paying for platform complexity that our teams are not equipped to operate?
+   **A:** If AKS clusters are running without genuine Kubernetes operational expertise on the team, the organization is paying for both the platform's complexity cost and the incident risk of undertrained operators — this should be assessed honestly against actual team skill inventory, not assumed adequate.
 2. Which parts of our compute estate are legacy by necessity and which are legacy by habit?
+   **A:** VMs kept for a genuine unmigrated dependency are legacy by necessity; VMs kept simply because no one has prioritized modernizing them despite no technical blocker are legacy by habit — this distinction should drive modernization roadmap prioritization.
 3. Where are GPU costs and quotas likely to become strategic constraints in the next 12 months?
+   **A:** As AI workload adoption grows, GPU quota and cost typically become a binding constraint faster than teams expect — this should be forecast proactively against planned AI initiatives rather than discovered reactively when a quota request is denied.
 4. Are our teams choosing runtimes based on workload fit or based on familiarity and internal politics?
+   **A:** This is testable by auditing whether AKS-hosted workloads actually use Kubernetes-native features, or whether they're running as if on a simpler platform — the latter pattern indicates familiarity/politics-driven choice rather than workload-fit-driven choice.
 5. Do we have too many clusters, too many VMs, or too many ad hoc serverless functions without clear ownership?
+   **A:** Sprawl in any runtime category without clear per-resource ownership tagging is a cost and security risk — this should be answerable via a direct inventory query, and an inability to answer it quickly is itself the finding.
 6. Can we explain which runtime classes are approved for regulated and revenue-critical workloads today?
+   **A:** This should be documented in the runtime-selection standard referenced above; if the answer requires case-by-case investigation, the governance model hasn't actually been operationalized as a real, enforced standard.
 7. Are our platform teams standardizing the right abstractions, or are we standardizing tools instead of outcomes?
+   **A:** Standardizing on "everyone uses AKS" is tool-standardization; standardizing on "workloads meet their latency/cost/operability targets, using whichever runtime achieves that most simply" is outcome-standardization — the latter produces better long-term platform health.
 8. Which compute decisions are reversible, and which will create long-lived operational commitments?
+   **A:** A Container Apps or Functions deployment is comparatively easy to migrate later; a deep AKS adoption with custom operators and CRDs creates a long-lived operational commitment that's expensive to unwind — this asymmetry should weigh into the initial runtime decision, not be discovered after the fact.
 
 ## References
 

@@ -594,34 +594,48 @@ The ADR discipline built in this chapter is the durable memory layer for every g
 ## Interview Questions
 
 1. What are the four core sections of an ADR, and what does each one capture?
+   **A:** Context (the forces and constraints driving the need for a decision), Decision (the choice actually made, stated plainly), Consequences (positive, negative, and neutral trade-offs accepted), and Alternatives Considered (what else was evaluated and why it was rejected).
 2. What is the difference between a Type 1 and a Type 2 decision, and why does the distinction matter?
+   **A:** A Type 1 decision is one-way-door and expensive/slow to reverse (e.g., choosing a core table format), while a Type 2 decision is two-way-door and cheap to reverse (e.g., a library version); the distinction matters because Type 1 decisions warrant a full ADR with deep alternatives analysis, while forcing that same rigor onto every Type 2 decision wastes time and trains people to skip the process.
 3. What should happen to an ADR when the decision it records is later reversed — edit it, delete it, or something else?
+   **A:** Mark the original ADR as "Superseded" with a link to the new ADR that reverses it, rather than editing or deleting it — the historical record of what was decided and why, even if later wrong, is valuable context for understanding the system's evolution.
 4. Why is the Alternatives Considered section often described as the most valuable part of an ADR?
+   **A:** It's the part most likely to answer the question a future engineer actually asks — "why didn't we just do X" — and it prevents costly re-litigation of options that were already evaluated and rejected for documented reasons.
 5. Where should ADRs be stored, and why is a disconnected wiki generally discouraged?
+   **A:** ADRs should live in version control next to the code they describe (e.g., a `docs/adr/` folder in the repository) so they're discoverable via the same tooling engineers already use and stay synchronized with the codebase's history; a disconnected wiki tends to drift out of sync and go unread because it's outside the engineer's normal workflow.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Your team's decision log has 40 ADRs, all marked "Accepted," and no one is sure which are still current. How would you run a staleness review without making it a multi-week project?
+   **A:** Timebox a rapid triage pass where each ADR gets a quick "still valid / superseded / needs review" tag based on a 2-minute skim rather than a deep re-analysis, then only deep-dive the small subset flagged "needs review" — most ADRs will confirm as still valid quickly.
 2. A junior engineer wants to write a full heavyweight ADR, with extended alternatives analysis, for choosing a logging library version. How would you coach them on right-sizing the decision record to the decision's actual reversibility?
+   **A:** Walk them through the Type 1/Type 2 framework and point out that a logging library version is trivially reversible (a dependency bump), so a two-sentence lightweight note suffices — reserve the deep alternatives-analysis rigor for decisions that would be expensive to walk back.
 3. How would you design a lightweight enforcement mechanism (CI check, PR template) that ensures every merged Tier-1 ARB decision actually produces a corresponding ADR, rather than relying on teams remembering?
+   **A:** Add a required field to the ARB approval template linking to the ADR file path, and have CI block merging any PR tagged "Tier-1 architecture change" that doesn't reference a corresponding ADR commit — making the traceability structural rather than a matter of individual memory.
 
 ---
 
 ## Architect Questions
 
 1. Design the end-to-end pipeline connecting the RFC/ARB process from [Architecture Governance](02_Architecture_Governance.md#core-concepts) to ADR authorship, such that the marginal cost of producing an ADR from an already-approved RFC is minimized. What tooling or template changes would you make?
+   **A:** Make the RFC template's Context/Options/Recommendation sections map directly onto the ADR's Context/Alternatives/Decision sections, so an approved RFC can be mechanically converted into an ADR with minimal rewriting — the RFC essentially becomes the ADR's first draft rather than a separate document.
 2. An organization is merging two business units, each with its own independent, incompatible decision log (different templates, different numbering, no cross-references). Design an integration approach that preserves both units' historical decision context without forcing a disruptive one-time renumbering.
+   **A:** Keep both historical logs immutable under their original numbering/namespace (e.g., prefix with the originating unit), and start a new, unified numbering scheme only for decisions made *after* the merger, with cross-references added where a new decision supersedes one from either legacy log.
 3. How would you measure whether an organization's ADR practice is actually preventing repeated mistakes and re-litigated decisions, versus merely producing documents no one reads? What leading and lagging indicators would you track?
+   **A:** A leading indicator is ADR view/reference frequency in later discussions (are people actually citing them); a lagging indicator is a measurable drop in "why don't we just do X again" discussions in architecture reviews for topics already covered by an existing ADR — if neither signal appears, the practice is producing unread documents.
 
 ---
 
 ## CTO Review Questions
 
 1. Do we have a durable, searchable record of why our most significant (Type 1) architectural decisions were made, and can a new senior hire find it without asking a person?
+   **A:** This is directly testable — hand a new hire a real historical decision and time how long it takes them to find the rationale using only searchable documentation; if the answer requires asking a specific person, the organization has a bus-factor risk masquerading as institutional knowledge.
 2. How many of our past architectural mistakes were repeated because the original decision and its rejected alternatives were never durably recorded?
+   **A:** This requires an honest postmortem review — repeated mistakes where the same rejected option gets re-proposed and re-evaluated from scratch are a direct, measurable cost of missing or unread ADRs, and each recurrence is a quantifiable waste of senior engineering time.
 3. If our two most senior architects left tomorrow, how much of our system's architectural rationale would leave with them, versus being captured in a decision log anyone could read?
+   **A:** Without a disciplined ADR practice, the honest answer is "most of it" — the rationale exists only in their heads; a mature ADR practice converts that tacit knowledge into an organizational asset that survives individual departures.
 
 ---
 
@@ -644,4 +658,4 @@ The ADR discipline built in this chapter is the durable memory layer for every g
 - Kua, P. (2020). Various writings on ADRs and evolutionary architecture, ThoughtWorks. https://www.thoughtworks.com
 - Ford, N., Parsons, R., & Kua, P. (2017). *Building Evolutionary Architectures.* O'Reilly Media. (Fitness functions and decision-making under uncertainty, complementary to ADR practice.)
 - Bezos, J. Shareholder letters on decision-making speed and reversibility (see References).
-- Next chapter: [Solution Architecture Practice](04_Solution_Architecture_Practice.prompt.md) — applying governed, recorded architectural decisions to the day-to-day practice of designing individual solutions.
+- Next chapter: [Solution Architecture Practice](04_Solution_Architecture_Practice.md) — applying governed, recorded architectural decisions to the day-to-day practice of designing individual solutions.

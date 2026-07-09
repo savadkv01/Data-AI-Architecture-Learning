@@ -686,7 +686,7 @@ Every stage of this flow determines the actual latency and durability the applic
 These storage fundamentals directly support the Phase-20 capstone (see [Introduction](01_Introduction.md)):
 
 - **Data-lake and lakehouse architecture decisions** (table format, file layout, compaction strategy) rest directly on the WAL/LSM-tree/B-tree reasoning developed here.
-- **Disaster recovery and RPO/RTO design** ([Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md)) depend on correctly quantifying replication/erasure-coding durability and rebuild time, not assuming a marketing "11 nines" figure applies uniformly.
+- **Disaster recovery and RPO/RTO design** ([Distributed Systems Primer](08_Distributed_Systems_Primer.md)) depend on correctly quantifying replication/erasure-coding durability and rebuild time, not assuming a marketing "11 nines" figure applies uniformly.
 - **Cost/FinOps modeling** for the capstone's storage bill rests on the tiering, redundancy-option, and small-file-compaction levers established here.
 - **Networking cost and latency modeling** ([Networking Fundamentals](04_Networking_Fundamentals.md)) compounds directly with storage's own cross-region replication and access-path costs.
 
@@ -698,26 +698,41 @@ In the capstone you will justify disk SKU, redundancy option, access tier, and t
 
 **Engineer level**
 1. What causes an HDD's random IOPS to be so much lower than its sequential throughput?
+   **A:** Random access forces the drive's mechanical head to physically seek and the platter to rotate to a new track for each request, and that mechanical seek/rotation time dominates the transfer itself; sequential access amortizes seek cost across a long contiguous read, so throughput is bottlenecked only by rotation speed and transfer rate.
 2. Explain what write amplification is and why it matters for SSD lifespan and performance.
+   **A:** Write amplification is the ratio of physical bytes actually written to flash versus logical bytes the application requested, caused by SSDs erasing and rewriting in large blocks even for small updates; higher amplification wears out flash cells faster and steals I/O bandwidth from legitimate writes.
 3. What is the difference between block, file, and object storage?
+   **A:** Block storage exposes raw addressable blocks with no built-in structure (the OS/filesystem imposes structure, e.g., a VM disk); file storage adds a hierarchical namespace and POSIX semantics on top of blocks; object storage is a flat key-value namespace over immutable blobs with rich metadata, sacrificing POSIX semantics for massive horizontal scalability.
 4. Why does a write-ahead log allow crash-safe recovery without writing every change in place immediately?
+   **A:** The WAL appends every change sequentially and durably before acknowledging the write, so even if the in-place data structure is updated lazily or not at all before a crash, recovery can replay the log to reconstruct the exact pre-crash state — sequential appends are also far cheaper than random in-place writes.
 5. What is the difference between a B-tree and an LSM-tree, in one sentence each?
+   **A:** A B-tree keeps data sorted in-place across balanced pages optimized for fast random reads at the cost of more expensive random writes; an LSM-tree buffers writes in memory and flushes them as sorted, immutable files merged later by compaction, optimizing for fast sequential writes at the cost of needing to check multiple files on read.
 
 **Staff Engineer Questions**
 6. Walk through diagnosing a database write-throughput plateau using queue depth, medium type, and indexing structure.
+   **A:** Check disk queue depth first — a consistently saturated queue means the medium (not the database) is the bottleneck; if the medium has headroom, look at whether the indexing structure (B-tree) is causing random-write amplification that an LSM-tree-based engine would avoid for this write-heavy pattern.
 7. Explain the RUM conjecture and use it to justify a storage-engine choice for a given workload's read/write ratio.
+   **A:** The RUM conjecture states you can optimize at most two of Read, Update (write), and Memory (space) overhead at the expense of the third; a read-heavy workload justifies a B-tree (optimizes read and space, accepts write cost), while a write-heavy ingestion workload justifies an LSM-tree (optimizes write and space, accepts read-amplification via compaction).
 8. Design a hot/cool/archive lifecycle policy for a dataset with a known access-frequency long tail, and justify the day thresholds chosen.
+   **A:** Set the hot-to-cool threshold at the point where access frequency drops below the cool tier's minimum-storage-duration break-even (commonly ~30 days) and cool-to-archive where access becomes rare enough that archive's slow rehydration is acceptable (commonly ~90-180 days); the exact thresholds should be derived from measured access-frequency decay, not copied from a vendor default.
 9. When would you choose erasure coding over replication for a given tier, and what operational trade-off are you accepting?
+   **A:** Choose erasure coding for cold/archival tiers with high rebuild-latency tolerance, since it cuts storage overhead roughly in half versus triple replication at comparable durability; the trade-off is materially slower, CPU-bound rebuild after a fragment loss, which is unacceptable for latency-sensitive hot tiers.
 
 **Architect Questions**
 10. Design a storage architecture (disk SKU, redundancy option, access tier, table format) for a regulated financial data platform with a defined RPO/RTO.
+    **A:** Use Premium SSD or equivalent for the hot transactional tier with GZRS for synchronous zone redundancy plus asynchronous geo-replication, a Hot access tier for actively queried data, and a Delta/Iceberg table format for auditable, ACID-compliant history — with the RPO explicitly bounded by the asynchronous geo-replication lag, not assumed to be zero.
 11. How would you decide between Azure Files and ADLS Gen2 for a shared analytics workspace supporting both legacy POSIX tooling and modern data-lake pipelines?
+    **A:** Use Azure Files where legacy tooling genuinely requires POSIX/SMB semantics (shared drive mounts, legacy applications), and ADLS Gen2 for the analytics pipelines themselves since its hierarchical namespace over Blob storage gives both data-lake scale and enough POSIX-like directory semantics for most modern engines — reserve Azure Files for the narrow legacy-compatibility case rather than the whole platform.
 12. Define the platform-wide policy for encryption, Private Endpoint use, and immutability for regulated data classes, and its exceptions process.
+    **A:** Mandate encryption at rest (customer-managed keys for regulated classes), Private Endpoint-only connectivity (no public endpoint), and immutability policies (WORM) for any data subject to retention regulation, with any exception requiring documented, time-boxed sign-off from both security and compliance owners.
 
 **CTO Review Questions**
 13. What is our actual, quantified durability and rebuild time (not the advertised "11 nines") for our most critical data classes?
+    **A:** The advertised durability figure is a statistical annual-loss-probability abstraction; the number that matters operationally is measured MTTR for rebuilding redundancy after an actual disk/node failure, which should be tracked and reported per storage tier, not assumed from the marketing figure.
 14. Quantify our storage cost exposure from small-file proliferation and mis-tiered lifecycle policies, and the plan to remediate.
+    **A:** Small-file proliferation multiplies per-request transaction costs and metadata overhead disproportionate to actual data volume, and data left in the Hot tier past its access-frequency decay point pays an ongoing storage-cost tax; the remediation is a compaction job schedule plus lifecycle-policy audit against measured (not assumed) access patterns.
 15. What is our data-corruption detection (checksumming/scrubbing) posture, independent of our replication/erasure-coding durability guarantees?
+    **A:** Replication and erasure coding protect against loss, not silent corruption (bit rot); the independent control is end-to-end checksumming validated on read and periodic background scrubbing that proactively detects and repairs corrupted replicas before an application ever reads bad data.
 
 ---
 
@@ -725,8 +740,11 @@ In the capstone you will justify disk SKU, redundancy option, access tier, and t
 
 (Consolidated for interview prep — see items 6-9 above, plus:)
 - Explain how Azure Storage's Front-End/Partition/Stream layering allows independent scaling of request routing, metadata, and raw capacity.
+  **A:** The Front-End layer handles request authentication/routing, the Partition layer manages metadata and load-balances partition ranges across servers, and the Stream layer handles raw block replication and durability — separating these concerns means each can scale independently (e.g., adding partition servers for hot metadata without touching raw storage capacity).
 - Describe how you would detect and resolve small-file-driven read amplification in a production data-lake table before it becomes a user-visible incident.
+  **A:** Monitor average file size and files-per-partition as a standing metric, alerting when average file size drops below a threshold (e.g., well under a target block size); resolve proactively with scheduled `OPTIMIZE`/compaction jobs rather than reacting only after query latency complaints arrive.
 - Contrast MTTR-driven durability engineering with simple replica-count reasoning, and explain which matters more in practice.
+  **A:** Replica count alone ("3 copies = safe") ignores how fast a lost replica is rebuilt; MTTR-driven engineering recognizes that durability is really a function of failure rate versus rebuild speed, since a slow rebuild widens the window in which a second correlated failure causes actual data loss — MTTR matters more in practice because it's the actual risk driver replica count only approximates.
 
 ---
 
@@ -734,7 +752,9 @@ In the capstone you will justify disk SKU, redundancy option, access tier, and t
 
 (See items 10-12 above, plus:)
 - Produce an ADR for adopting erasure coding over triple replication for a platform's cold/archival storage tier, including alternatives and consequences.
+  **A:** See ADR-0005 below — it adopts erasure coding for cold/archival tiers specifically because their documented rebuild-latency tolerance (hours) makes the storage-cost savings a clear win, while explicitly retaining replication for latency-sensitive hot tiers where the trade-off would be unacceptable.
 - Define the enterprise's data-classification-to-storage-policy mapping (redundancy option, access tier, encryption, immutability) as a governed reference architecture.
+  **A:** Publish a matrix mapping each data classification (public, internal, confidential, regulated) to a mandatory minimum redundancy option, access tier, encryption requirement, and immutability policy, enforced via policy-as-code (Azure Policy) rather than left to individual project teams' discretion.
 
 ---
 
@@ -742,7 +762,9 @@ In the capstone you will justify disk SKU, redundancy option, access tier, and t
 
 (See items 13-15 above, plus:)
 - Present the business case for investing in automated lifecycle-tiering and compaction tooling versus continuing with ad hoc, manually managed storage policy.
+  **A:** Manual tiering decisions lag behind actual access-pattern changes and rarely get revisited once set, silently accumulating cost; automated tooling driven by measured access telemetry continuously right-sizes tier placement, typically recovering a material fraction of storage spend within the first optimization cycle.
 - Assess the business risk of a major cloud storage provider's metadata-subsystem outage (per the 2017 S3 case study) on our platform's availability, and the mitigations in place.
+  **A:** A metadata-subsystem outage can make data technically intact but completely inaccessible platform-wide, which is functionally equivalent to an outage for every dependent service; the mitigation is multi-region replication with a tested failover path plus avoiding a single storage account/service becoming an undocumented shared dependency for unrelated critical services.
 
 ---
 
@@ -772,4 +794,4 @@ In the capstone you will justify disk SKU, redundancy option, access tier, and t
 - RocksDB documentation — *Compaction styles and tuning*.
 - Delta Lake / Apache Iceberg documentation — *Transaction log and file-layout internals*.
 - Amazon — *Summary of the Amazon S3 Service Disruption in the Northern Virginia (US-EAST-1) Region* (2017 post-incident report).
-- Handbook cross-references: [Operating Systems for Data Engineers](03_Operating_Systems.md), [Networking Fundamentals](04_Networking_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.prompt.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.prompt.md).
+- Handbook cross-references: [Operating Systems for Data Engineers](03_Operating_Systems.md), [Networking Fundamentals](04_Networking_Fundamentals.md), [Concurrency and Parallelism](06_Concurrency_and_Parallelism.md), [Distributed Systems Primer](08_Distributed_Systems_Primer.md).

@@ -853,34 +853,48 @@ The direct connection back to [Enterprise Architecture Foundations](01_Enterpris
 ## Interview Questions
 
 1. What is a business capability, and how is it different from a process or an application?
+   **A:** A capability is a stable "what the business can do" (e.g., "assess credit risk"), independent of how it's currently done; a process is the specific sequence of steps realizing it today, and an application is the specific system supporting it — capabilities stay constant while processes and applications are replaced underneath them.
 2. Why are capability maps more stable than org charts or application inventories?
+   **A:** Org charts and application portfolios change with every reorg, vendor swap, or modernization project, but the underlying business capabilities they support (what the business fundamentally needs to do to operate) change far less frequently — a capability map anchored to business outcomes survives organizational churn that would invalidate a process or system inventory.
 3. What information should a heat map contain to be useful for prioritization?
+   **A:** A useful heat map combines business criticality/value (how important is this capability strategically) with current maturity/health (how well is it currently supported), since a capability that's both high-value and low-maturity is the priority signal — value or health alone, without the other, doesn't tell you where to invest.
 4. How do value streams and capabilities complement each other?
+   **A:** A value stream is the end-to-end flow of activities delivering value to a customer (e.g., "order to cash"), and it typically traverses multiple capabilities in sequence — mapping which capabilities support which value-stream stages reveals where a weak capability is silently bottlenecking a customer-facing outcome.
 5. Why is linking capabilities to data domains important for modern data and AI architecture?
+   **A:** Data domains without a capability anchor tend to be organized around whatever system happens to produce the data rather than the business meaning it serves, making data products hard to prioritize or govern; linking domains to capabilities ensures data investment follows actual business value rather than incidental system structure.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Your platform team has several modernization proposals but no clear way to compare them with customer-service or compliance initiatives. How would you introduce capability-based scoring without turning it into bureaucracy?
+   **A:** Score each proposal against the same small set of capability-heat-map dimensions (business criticality, current maturity, dependency risk) already maintained for other purposes, rather than inventing a new scoring framework — reusing an existing artifact keeps the process lightweight instead of adding a parallel bureaucratic layer.
 2. A heat map says a capability is red, but operational metrics are stable. What questions would you ask before recommending investment?
+   **A:** Ask whether "red" reflects a genuine current problem or a forward-looking risk (aging technology, key-person dependency, scalability ceiling not yet hit) that stable current metrics wouldn't show — a capability can look healthy today while carrying latent risk that heat-map assessors correctly flagged but operational dashboards don't yet capture.
 3. How would you detect whether a supposedly strategic data product has no meaningful capability anchor and should therefore be deprioritized or re-scoped?
+   **A:** Check whether the data product can be traced to a specific capability it improves and a value-stream stage it unblocks — if a project owner can't name either, it's likely organized around convenient system boundaries rather than genuine business value, a signal to re-scope or deprioritize it.
 
 ---
 
 ## Architect Questions
 
 1. Design a capability model for a service organization spanning customer support, field operations, consent and policy, commercial analytics, and knowledge management. Which L2 capabilities would you choose first, and why?
+   **A:** Start with the L2 capabilities that most directly touch customer outcomes and regulatory exposure first — e.g., under Consent and Policy: "manage customer consent" and "enforce data-usage policy" — because these carry the highest business and compliance risk if left unmodeled, then expand to Field Operations and Commercial Analytics capabilities.
 2. How would you connect capability modeling to Data Mesh ownership so that domain data products reflect business value rather than platform structure?
+   **A:** Assign each Data Mesh domain to the capability it primarily serves (not the system that happens to produce the data), so a domain's data product roadmap is prioritized by that capability's heat-map score rather than by whichever system team happens to own the underlying database.
 3. When a business unit insists on planning by application ownership instead of capability impact, how would you challenge that approach in a review forum?
+   **A:** Show a concrete example where an application-ownership view hides that two systems in different silos actually serve the same capability (revealing likely duplication) or that a critical capability spans systems no single application owner is accountable for end-to-end — capability impact surfaces risks application-ownership framing structurally cannot see.
 
 ---
 
 ## CTO Review Questions
 
 1. Can we explain our top five transformation investments in terms of the business capabilities they improve, not just the systems they touch?
+   **A:** If an investment can only be described in terms of systems replaced or technology adopted, not the capability outcome it improves, it's at risk of being a technology-driven project rather than a value-driven one — every major investment should have a clear capability-improvement narrative.
 2. Which critical capabilities currently depend on weak or poorly owned data domains, and what is the business risk of leaving them that way?
+   **A:** This is answerable by cross-referencing the capability heat map against data-domain ownership clarity — a high-value, high-dependency capability resting on an unowned or poorly governed data domain is a hidden single point of failure that typically only becomes visible during an incident or audit.
 3. If we had to cut or redirect 20 percent of portfolio spend next quarter, would our capability model be strong enough to guide those trade-offs credibly?
+   **A:** A mature capability model with an up-to-date heat map lets you defensibly protect high-value, low-maturity capabilities and cut spend from high-maturity/lower-value ones; without it, cuts default to political or historical inertia rather than business-value evidence.
 
 ---
 

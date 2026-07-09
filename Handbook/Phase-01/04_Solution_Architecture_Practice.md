@@ -28,8 +28,10 @@ By the end of this chapter you will be able to:
 4. **Use views and viewpoints correctly**, including the C4 model, to communicate the right level of detail to different stakeholders.
 5. **Produce a defensible HLD** that is concrete enough for review but not overloaded with implementation trivia.
 6. **Produce an implementation-ready LLD** that removes ambiguity around interfaces, scaling, security, and operational behavior.
-7. **Map architectural decisions onto Azure services and deployment choices** without turning service selection into the architecture itself.
-8. **Recognize the anti-patterns that make architecture documents unreadable or operationally useless** and replace them with high-signal artifacts.
+7. **Write AI-specific quality-attribute scenarios** for inference latency, feature/context freshness, and cost per prediction.
+8. **Define and enforce architecture fitness functions in CI**, and choose between strangler-pattern and big-bang migration strategies.
+9. **Map architectural decisions onto Azure services and deployment choices** without turning service selection into the architecture itself.
+10. **Recognize the anti-patterns that make architecture documents unreadable or operationally useless** and replace them with high-signal artifacts.
 
 ---
 
@@ -50,7 +52,7 @@ For a data and AI architect, this turns a statement like `build a customer suppo
 
 ## History and Evolution
 
-- **1995-2000 - IEEE 1471, later ISO/IEC/IEEE 42010**, formalized the concept of architecture descriptions, views, viewpoints, stakeholders, and concerns, giving architecture communication a rigorous vocabulary beyond ad hoc diagramming.
+- **2000 - IEEE Std 1471-2000**, later superseded by **ISO/IEC/IEEE 42010**, formalized the concept of architecture descriptions, views, viewpoints, stakeholders, and concerns, giving architecture communication a rigorous vocabulary beyond ad hoc diagramming.
 - **1995 - Kruchten's 4+1 view model** made it normal to describe software systems through multiple complementary views rather than a single master diagram.
 - **Late 1990s - ATAM and quality attribute scenario thinking** emerged from the Software Engineering Institute, making architectural trade-off analysis a structured activity instead of intuition plus seniority.
 - **2000s - UML and RUP popularized HLD and LLD artifacts**, though often with too much ceremony and too many diagrams disconnected from runtime realities.
@@ -136,13 +138,84 @@ A **viewpoint** defines how to construct a view for a particular stakeholder con
 
 C4 is not the only valid structure, but it has a useful property: it scales from executive briefing to delivery handoff without pretending one diagram can serve every audience.
 
+**Worked example — Customer Interaction Intelligence Platform.** The three C4 levels most teams maintain in practice, applied to the running example:
+
+```mermaid
+graph TB
+    subgraph Context["C1: System Context"]
+        Agent[Support Agent]
+        CRM[CRM System]
+        Platform[Customer Interaction<br/>Intelligence Platform]
+        Agent -->|requests grounded summary| Platform
+        CRM -->|streams events| Platform
+        Platform -->|serves summaries and answers| Agent
+    end
+```
+
+```mermaid
+graph TB
+    subgraph Container["C2: Container Diagram"]
+        API[Support API<br/>App Service]
+        Orchestrator[Retrieval Orchestrator<br/>App Service]
+        Lake[(Curated Lakehouse<br/>ADLS Gen2 + Databricks)]
+        Search[(AI Search Index)]
+        LLM[Azure OpenAI]
+        DB[(Cosmos DB<br/>session state)]
+        API --> Orchestrator
+        Orchestrator --> Search
+        Orchestrator --> LLM
+        Orchestrator --> DB
+        Lake --> Search
+    end
+```
+
+```mermaid
+graph TB
+    subgraph Component["C3: Component Diagram — Retrieval Orchestrator"]
+        Policy[Policy Enforcement<br/>Component]
+        Retrieval[Retrieval<br/>Component]
+        Prompt[Prompt Assembly<br/>Component]
+        Grounding[Grounding Validator<br/>Component]
+        Policy --> Retrieval
+        Retrieval --> Prompt
+        Prompt --> Grounding
+    end
+```
+
+The **Code** level (the fourth C) is used selectively here, for example a sequence diagram of the grounding-validator's retry and citation-check logic, only where implementation risk justifies the extra detail rather than as a blanket requirement for every component.
+
 ### 4.5 Producing HLD and LLD artifacts
 
 A strong **HLD** should answer: what problem is being solved, for whom, under which constraints, with which target quality attributes, and at what system boundary. It typically contains the business context, scope boundaries, major integrations, context and container diagrams, a deployment view, NFR budgets, major risks, and the key ADRs that shape the design. It should not drown the reader in individual API fields or thread-pool settings.
 
 A strong **LLD** answers: how exactly will this be built and operated. It should contain interface contracts, schema definitions, sequence diagrams, component decomposition, retry and idempotency rules, cache behavior, scaling thresholds, network rules, secrets handling, failure scenarios, telemetry schema, alert definitions, and test approach. If the HLD tells reviewers whether the design is sound, the LLD tells implementers whether it is unambiguous.
 
-### 4.6 Example ADR inside solution architecture
+### 4.6 AI-specific quality-attribute scenarios
+
+Generic performance, availability, and security scenarios are not sufficient for AI and analytics workloads. Add a distinct scenario category for AI-specific quality attributes, written with the same source/stimulus/environment/artifact/response/response-measure discipline as section 4.2:
+
+- **Inference latency:** When a support agent requests a grounded answer during peak load, the Azure OpenAI completion call plus retrieval must return within a 1.8-second sub-budget of the overall 2.5-second p95 API target, measured separately from retrieval and network latency so a regression in model latency is attributable rather than hidden inside the total.
+- **Feature/context freshness:** When a customer's CRM record changes, the curated feature or context used for grounding must reflect that change within 5 minutes at p95, measured from CDC event timestamp to searchable index update, so stale-context answers can be diagnosed as a freshness-budget breach rather than a model-quality problem.
+- **Cost per prediction:** When the platform serves grounded answers in production, the fully loaded cost per answer (model tokens, retrieval compute, and index serving cost) must stay below an agreed ceiling per interaction, tracked per channel and business unit, so cost growth from prompt-size creep or retrieval over-fetching is visible before it becomes a budget incident rather than after.
+
+These scenarios matter architecturally because they decompose an AI system's user-visible latency and cost into budgeted sub-components (retrieval, inference, grounding validation) the same way a traditional system decomposes p95 latency into database, network, and application-tier budgets.
+
+### 4.7 Fitness functions and evolutionary architecture
+
+An **architecture fitness function** is any automated, repeatable check that verifies an architectural characteristic holds, run the same way a unit test verifies functional correctness. The idea, popularized by *Building Evolutionary Architectures* (Ford, Parsons, Kua), turns architectural intent that would otherwise live only in an ADR or a diagram into something CI can enforce on every change.
+
+Practical fitness functions for the running example:
+
+- **Dependency-direction fitness function:** a static-analysis rule (e.g. ArchUnit-style or a custom lint) that fails the build if the Retrieval component imports directly from the Prompt Assembly component's internals instead of its published interface, protecting the component boundaries drawn in the C3 diagram above.
+- **Latency fitness function:** a CI-triggered synthetic load test that fails the pipeline if p95 retrieval latency regresses beyond the 1.8-second AI-inference-latency budget defined in section 4.6, run against every release candidate before production promotion.
+- **Data-residency fitness function:** a policy-as-code check (Azure Policy or OPA/Conftest against Bicep/Terraform plans) that fails deployment if any storage or compute resource is provisioned outside the approved EU regions constraint from section 4.1.
+- **Cost fitness function:** a scheduled job that queries actual cost-per-prediction telemetry and fails a dashboard/alert threshold (not the build itself, since this is a runtime rather than build-time characteristic) if the section 4.6 cost ceiling is breached for more than one day.
+
+Fitness functions are what make an architecture **evolutionary** rather than merely diagrammed: instead of relying on periodic architecture review to catch drift, the system continuously verifies its own characteristics and fails fast when a change violates one, the same discipline [Architecture Decision Records](03_Architecture_Decision_Records.md) applies to decisions rather than to running characteristics.
+
+**Migration strategy — incremental versus big-bang.** The **strangler pattern** is the default evolutionary-migration approach: place a facade (here, API Management) in front of the legacy or existing capability, route an increasing share of traffic to the new implementation behind that stable facade, and decommission the old path only once the new one has proven itself under real production load. Apply strangler-style migration when the legacy system must stay operational throughout the change, when risk tolerance for a single cutover is low, or when the replacement is large enough that a big-bang rewrite would take longer than the business can wait for value. Reserve a **big-bang migration** for cases where the legacy system is small, low-risk, already fully replaced in a non-production environment, or where running two implementations in parallel is not feasible (for example, a schema change with no safe dual-write path). For the running example, a strangler migration would mean routing new AI-summary traffic through API Management to the new Retrieval Orchestrator while legacy CRM-only lookups continue serving from the old system until the lakehouse-backed summaries are validated at full production volume.
+
+### 4.8 Example ADR inside solution architecture
 
 The following is a representative ADR for a solution-level decision:
 
@@ -783,34 +856,48 @@ This chapter is the operating method for nearly every later chapter in the handb
 ## Interview Questions
 
 1. What is the difference between a functional requirement, a constraint, and an assumption?
+   **A:** A functional requirement is what the system must do (behavior); a constraint is an externally imposed boundary the design must respect (budget, regulatory, existing technology); an assumption is a belief taken as true without verification (e.g., "peak load will not exceed 10x average") that should be explicitly stated because if it's wrong, the design may fail silently.
 2. Why should non-functional requirements be written as measurable scenarios rather than adjectives?
+   **A:** "The system should be fast" is untestable and unenforceable; "95% of checkout requests complete within 300ms under 500 concurrent users" is a scenario that can be tested, tracked, and used to reject a design that doesn't meet it — adjectives invite disagreement later, scenarios prevent it.
 3. What does ATAM help a team discover that a normal design review often misses?
+   **A:** ATAM (Architecture Tradeoff Analysis Method) systematically surfaces where quality attributes conflict (e.g., security versus latency) and where a single architectural decision has sensitivity points affecting multiple attributes at once — a normal design review often reviews attributes independently and misses these cross-cutting tension points.
 4. When is an HLD sufficient, and when do you need an LLD before build approval?
+   **A:** An HLD (component boundaries, major data flows, key technology choices) is sufficient for low-risk, well-understood work; an LLD (detailed interface contracts, schema definitions, sequence diagrams) is needed before build approval when multiple teams must integrate against the design or when the design involves a novel or high-risk pattern where ambiguity would cause costly rework.
 5. How does the C4 model help prevent architecture diagrams from becoming generic slideware?
+   **A:** C4 forces a specific, named zoom level (Context, Container, Component, Code) for every diagram rather than one ambiguous "architecture diagram" trying to serve every audience at once, which keeps each diagram concrete, accurate, and maintainable instead of a vague box-and-arrow abstraction that goes stale immediately.
 
 ---
 
 ## Staff Engineer Questions
 
 1. Your team insists on AKS for every new service. How would you challenge that default using quality attributes, team maturity, and operational cost rather than opinion?
+   **A:** Ask what specific quality attribute AKS uniquely satisfies for this workload (need for custom scheduling, specific networking control) versus a simpler option (Container Apps, Functions); if the team can't articulate a concrete requirement AKS meets that a simpler platform doesn't, the default is habit, not a justified architectural decision, and the operational overhead cost should be made explicit.
 2. A critical API meets functional requirements but repeatedly misses p95 latency during peak traffic. What architectural evidence would you gather before proposing a redesign?
+   **A:** Gather distributed traces showing where time is actually spent under peak load (database query time, downstream dependency latency, queueing delay), not just the aggregate p95 number, since the redesign should target the actual bottleneck rather than a generic "make it faster" rewrite.
 3. How would you design a docs-as-code workflow that keeps HLD, LLD, ADRs, and IaC aligned without turning pull requests into bureaucracy?
+   **A:** Store all four artifact types in the same repository as the code, require doc updates only in the same PR as the design/code change they describe (not a separate ceremony), and use CI to flag (not block) PRs that touch architecture-relevant files without a corresponding doc update.
 
 ---
 
 ## Architect Questions
 
 1. Design the viewpoint set, artifact pack, and review flow for a multi-team program delivering a regulated AI-assisted customer service platform across two regions.
+   **A:** Use C4 Context and Container views for cross-team alignment, an LLD with explicit data-residency and consent-flow sequence diagrams for the regulated AI components, ADRs for consistency-level and model-hosting-region decisions, and a review flow with a regional compliance sign-off gate in addition to the standard ARB pass.
 2. A solution depends on a strong enterprise reference architecture, but one product team has valid reasons to deviate. How do you separate justified adaptation from architecture drift?
+   **A:** Require the deviation to be documented as an ADR with an explicit comparison against the reference architecture's stated rationale — if the deviation addresses a genuinely different constraint the reference architecture didn't anticipate, it's justified adaptation; if it's unexplained or convenience-driven, it's drift and should be remediated.
 3. How would you evaluate whether an architecture team is improving delivery outcomes versus merely producing more documents?
+   **A:** Track outcome metrics (reduced rework rate, reduced production incidents traceable to design gaps, faster cross-team integration) alongside document output, since document volume alone can increase while actual decision quality and delivery speed stay flat or worsen.
 
 ---
 
 ## CTO Review Questions
 
 1. Do our major delivery initiatives have measurable quality budgets and explicit trade-offs, or only diagrams and optimistic assumptions?
+   **A:** This is testable by sampling a few active initiatives and asking for their measurable NFR scenarios and documented trade-off decisions — if the answer is a diagram and a verbal assurance, the initiative lacks the rigor needed to catch quality-attribute failures before production.
 2. Can we trace our most important runtime risks back to architecture decisions that were reviewed and recorded before implementation?
+   **A:** If a production incident's root cause traces to an architectural choice with no corresponding ADR or review record, that's a governance gap, not just an engineering mistake — the fix is ensuring the decision-recording discipline actually covers the risk areas that matter, not just the easy ones.
 3. If a senior architect left tomorrow, would the HLD, LLD, and ADR set be enough for another team to operate and evolve the system safely?
+   **A:** This is directly testable by having a different team attempt exactly that exercise on a real system; if they can't safely operate or extend it from the documented artifacts alone, the documentation practice has a real gap regardless of how much was produced.
 
 ---
 

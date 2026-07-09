@@ -292,6 +292,8 @@ Distributed-systems-driven performance levers, in priority order:
 - **Retry storms are a hidden cost multiplier** — the worked example in §Performance shows unbounded, synchronized retries amplifying both incident duration and the compute cost of serving repeated, redundant retried load; backoff-with-jitter is a cost control as much as a reliability one.
 - **Cross-region replication bandwidth is a metered, often underestimated cost line item** — multi-region geo-replication (Cosmos DB, storage account geo-redundancy) should be sized against actual availability/latency requirements (§8.1) rather than enabled by default "for safety."
 
+**Worked FinOps example — Cosmos DB consistency-level RU delta (illustrative rates; verify current figures in the Azure Pricing Calculator).** A write-heavy container provisioned at 10,000 RU/s under **Session** consistency typically consumes roughly 5 RU per 1KB write. The same write under **Strong** consistency, requiring synchronous cross-region quorum acknowledgment, typically costs 2-3x more RU per write due to the additional replication round-trip accounted into the request charge — call it 12-15 RU per write, illustratively. At 1 million writes/day, that is a delta of roughly 7-10 RU/write × 1M writes ≈ 7-10 million extra RU/day. At a provisioned-throughput rate of ≈$0.008 per 100 RU/s-hour, sustaining that extra throughput continuously costs on the order of **$450-650/month in incremental RU capacity alone** for a single container — before counting the added cross-region write latency. For workloads that only need read-your-writes (Session), not global linearizability (Strong), that is a recurring, avoidable cost with zero correctness benefit for the actual access pattern.
+
 ---
 
 ## Monitoring
@@ -314,6 +316,34 @@ In Azure, surface these via **Azure Monitor** (Cosmos DB's built-in replication-
 - **Idempotency-key hit rate is a directly observable signal of retry behavior** — a rising rate of idempotency-key *reuse* (i.e., detected retries) is a leading indicator of an upstream dependency or network path degrading, visible before the underlying cause's own metrics show it clearly.
 - **Consensus-cluster observability must include per-node view of "who do I think the leader is"** — a transient disagreement (two nodes reporting different current leaders) is a direct, debuggable signal of a recent or ongoing partition/election event, and should be a first-class dashboard, not buried in raw logs.
 - **SLO dashboards should show burn rate, not just current SLI value** — a burn-rate view answers "should we act now," while a raw SLI value alone does not indicate urgency relative to the remaining budget and measurement window.
+
+---
+
+## Operational Response Playbook
+
+The two highest-severity distributed-systems incidents — split-brain writes and unbounded replication lag — expressed as **signal → detection query → remediation**.
+
+### Playbook 1: Suspected split-brain (two nodes both accepting writes as leader)
+
+| Step | Action |
+|---|---|
+| **Signal** | Conflicting writes to the same key/partition observed from two different nodes within the same short window; a consensus cluster's members disagree on who the current leader/term is. |
+| **Detection query (KQL / cluster metrics)** | Query each node's reported `current_leader_id` and `current_term` (Raft/etcd/ZooKeeper metrics exported to Azure Monitor); a genuine split-brain shows **more than one node reporting itself as leader for the same term**, not just stale follower state. |
+| **Detection query (Cosmos DB)** | Check `NormalizedRUConsumption` and conflict-feed/change-feed records around the incident window; multi-write regions with conflict resolution enabled will surface the conflicting writes in the conflicts feed. |
+| **Immediate remediation** | Fence the stale leader (revoke its ability to serve writes, e.g., via a forced restart or lease revocation) before doing anything else — do **not** attempt to merge conflicting state while both sides may still be accepting writes. |
+| **Root-cause check** | Confirm whether the deployed "leader election" is backed by a genuine majority-quorum consensus protocol (Raft/Paxos) or a hand-rolled timeout-based lease (§8.13) — the latter is the near-universal root cause of real split-brain incidents. |
+| **Follow-up** | Add a dashboard showing per-node "who do I think the leader is" (§Observability) so a future disagreement is caught before conflicting writes accumulate, and add a chaos-style partition-injection test to the release gate. |
+
+### Playbook 2: Unbounded replication lag / stale-read incident
+
+| Step | Action |
+|---|---|
+| **Signal** | Reads from a replica or secondary region return data noticeably older than expected for the configured consistency level; downstream jobs report inconsistent aggregates depending on which replica served the read. |
+| **Detection query (KQL, Cosmos DB)** | Cosmos DB's built-in `ReplicationLatency` and `DocumentQuotaUsage` metrics in Azure Monitor, filtered by region pair; alert when lag exceeds the `maxIntervalInSeconds`/`maxStalenessPrefix` bounds configured for Bounded Staleness. |
+| **Detection query (Kafka/general)** | Compare each replica/consumer's committed offset or replayed-log position against the leader's high-water mark; a growing, non-recovering gap (not a transient blip) is the actionable signal. |
+| **Immediate remediation** | Identify whether the lag is caused by network degradation (transient, self-healing), sustained write-volume overload (needs write-side throttling or partition rebalancing), or a genuinely stuck/failed replica (needs replacement). |
+| **Root-cause check** | Confirm the consistency level in use actually matches what the application assumed — a service reading from a lagging replica under Eventual consistency while the caller assumed Session-level read-your-writes is a design mismatch, not just an infrastructure fault. |
+| **Follow-up** | If lag recurs under normal load, revisit replica count, region placement, or consistency-level choice using the RU/latency trade-off quantified above, rather than treating each recurrence as an isolated incident. |
 
 ---
 
@@ -716,26 +746,41 @@ In the capstone you will justify consistency-level and replication-topology choi
 
 **Engineer level**
 1. What is the fundamental ambiguity that makes distributed systems harder than single-machine concurrent systems?
+   **A:** Over an unreliable network, an unanswered message gives no way to distinguish "the remote process crashed," "it's merely slow," or "it replied and the reply was lost" — a single-machine system never faces this ambiguity because a crashed process simply stops, visibly, with no network in between to hide the failure mode.
 2. Name the three failure models (crash, omission, Byzantine) and give an example system that assumes each.
+   **A:** Crash-stop (a node fails by simply halting — most consensus protocols like Raft assume this), omission (messages can be dropped but nodes don't lie — many gossip protocols tolerate this), and Byzantine (nodes can behave arbitrarily or maliciously — blockchain consensus protocols like PBFT are designed for this, since they assume some participants may actively lie).
 3. What is the difference between at-least-once and exactly-once delivery, and why is true exactly-once delivery impossible over an unreliable network?
+   **A:** At-least-once guarantees a message is delivered one or more times (requiring the consumer to handle duplicates); exactly-once is impossible in the strict sense because the sender can never be certain whether an unacknowledged message was lost or just its ack was lost, so any retry risks a duplicate — what's actually achievable is "effectively-once" via at-least-once delivery plus idempotent processing.
 4. What is an idempotency key, and what specific problem does it solve?
+   **A:** An idempotency key is a client-generated unique identifier attached to a request so that if the same logical request is retried (due to a timeout or lost response), the server can recognize the duplicate and return the original result instead of processing the side effect twice.
 5. Why should latency be reported as percentiles rather than an average?
+   **A:** An average is dominated by the bulk of fast requests and hides a small but often business-critical fraction of very slow requests; percentiles (p95, p99) expose exactly that tail behavior, which is usually what determines whether real users experience the system as reliable.
 
 **Staff Engineer Questions**
 6. Explain the CAP theorem precisely, including the common misunderstanding about partition tolerance being "optional."
+   **A:** CAP says a distributed system can provide at most two of Consistency, Availability, and Partition tolerance; the common misunderstanding is treating P as optional — on any real network, partitions *will* happen, so the actual, only-during-a-partition choice is Consistency versus Availability, not a free three-way pick.
 7. Walk through how Raft achieves consensus, including why a majority quorum is required and why odd node counts are preferred.
+   **A:** Raft elects a single leader via majority vote, and the leader replicates log entries to followers, committing an entry only once a majority acknowledge it; a majority quorum guarantees any two quorums overlap by at least one node (preventing two conflicting leaders from both committing), and odd node counts maximize fault tolerance per node added (5 nodes tolerate 2 failures with the same quorum size that 6 nodes would need to tolerate only 2 as well, wasting a node).
 8. Design an idempotent, retry-safe API for a payment-processing endpoint, including the dedup-store schema and TTL policy.
+   **A:** Require an idempotency key per logical payment request, store `(key, result, timestamp)` in a fast key-value store checked before processing, return the cached result for a repeated key within a TTL window (long enough to cover realistic client retry windows, e.g., 24 hours), and expire entries after that to bound storage growth.
 9. Explain PACELC and give a concrete example of the "else" (non-partition) latency/consistency trade-off in a system you have worked on.
+   **A:** PACELC extends CAP with the observation that even absent a partition, a system must still choose latency or consistency, since strong consistency requires synchronous cross-replica coordination; a concrete example is Cosmos DB's Strong consistency mode paying a measurable, always-on latency and RU tax versus Session consistency, even when the network is perfectly healthy.
 
 **Architect Questions**
 10. Design a multi-region active-active architecture for a global e-commerce platform, including consistency-level choice, conflict-resolution strategy, and failover behavior.
+    **A:** Use session or eventual consistency for locally-served reads/writes (catalog, cart) with a documented conflict-resolution rule (last-write-wins with a vector clock or CRDT for cart merges) for the rare concurrent-write case, and reserve strong consistency only for the narrow slice of data (inventory decrement, payment) that genuinely cannot tolerate divergence.
 11. Choose between Two-Phase Commit and a Saga pattern for a cross-service order-fulfillment workflow, and justify the choice explicitly against the trade-offs in §Trade-offs.
+    **A:** Choose Saga for a multi-service order-fulfillment workflow because 2PC's blocking coordinator is a single point of failure and doesn't scale well across service boundaries with independent failure domains; Saga trades strict atomicity for a sequence of local transactions plus compensating actions, which fits a workflow where "eventually consistent, compensatable" is an acceptable business model (a cancelled order can be compensated, it doesn't need to have never happened).
 12. Define an enterprise-wide SLO/error-budget governance policy, including what triggers a release freeze and who owns the decision.
+    **A:** Define an SLO with a measurable error budget (e.g., 99.9% success over 30 days), automatically trigger a release freeze for the responsible service when the budget is exhausted, and vest the freeze/unfreeze decision with the service owner and SRE lead jointly — not a manual, ad hoc call made under incident pressure.
 
 **CTO Review Questions**
 13. What consistency-level choices are currently in place across our most critical data stores, and are they deliberate, documented decisions or unexamined defaults?
+    **A:** This requires an actual audit — many production systems run on a default consistency level (often "Strong" because it "sounds safest") that was never deliberately evaluated against the workload's real requirements, silently paying a latency/cost tax or, worse, running Eventual where the business actually needed read-your-writes.
 14. What is our incident history involving duplicate side effects, split-brain, or retry storms, and what governance change would have prevented the most costly of them?
+    **A:** These incidents typically trace back to a missing idempotency key, an unreviewed consistency-level choice, or an untested failover path; the governance fix is mandating idempotency-key design review for any externally-retriable API and periodic chaos-style failover testing rather than trusting untested failover code.
 15. Are our SLOs and error budgets actually governing release velocity and reliability investment decisions, or are they numbers on a dashboard nobody acts on?
+    **A:** The honest test is whether an error-budget exhaustion has ever actually triggered a release freeze in practice — if not, the SLO is decorative, not governing, and the organization is carrying reliability risk without the safety mechanism it believes it has.
 
 ---
 
@@ -743,8 +788,11 @@ In the capstone you will justify consistency-level and replication-topology choi
 
 (Consolidated for interview prep — see items 6-9 above, plus:)
 - Explain vector clocks and describe a concrete scenario where they detect a genuine write conflict that a simple last-write-wins timestamp comparison would silently and incorrectly resolve.
+  **A:** A vector clock tracks a per-replica counter for each write, so two writes with incomparable vector clocks (neither dominates the other) are provably concurrent and conflicting; a scenario is two users editing the same shopping cart offline on different replicas — last-write-wins would silently discard one user's changes based on wall-clock timestamp alone, while a vector clock correctly flags the conflict for explicit merge.
 - Describe how you would diagnose whether a production latency regression is caused by a genuine capacity limit versus a consensus-cluster quorum-latency ceiling.
+  **A:** Check whether latency correlates with request volume (capacity) or stays flat regardless of load but is bounded by the slowest quorum member's round-trip time (consensus ceiling) — a consensus-bound system shows a hard latency floor set by cross-node round trips that no amount of added capacity will reduce.
 - Contrast choreography-based and orchestration-based Sagas, and explain the observability trade-offs of each at scale.
+  **A:** Choreography (services reacting to each other's events with no central coordinator) scales well and decouples services but makes the overall workflow state hard to observe without distributed tracing; orchestration (a central coordinator driving each step) gives a single place to observe workflow state and progress, at the cost of that coordinator becoming a more centralized dependency.
 
 ---
 
@@ -752,7 +800,9 @@ In the capstone you will justify consistency-level and replication-topology choi
 
 (See items 10-12 above, plus:)
 - Produce an ADR for choosing Cosmos DB's Session consistency over Strong consistency for a multi-region order-management system.
+  **A:** See ADR-0008 below — it chooses Session consistency specifically because the workload only required read-your-writes within a user's own session, not global write ordering, and measured Strong consistency's latency/RU cost as unjustified for that actual requirement.
 - Define the enterprise's reference architecture mapping workload shape (financial ledger, session state, catalog data, telemetry) to the recommended consistency level and replication topology.
+  **A:** Map financial ledgers to strong consistency with single-write-region topology, session/user state to session consistency with multi-region writes, catalog data to eventual consistency with multi-region writes, and telemetry to eventual/consistent-prefix with the highest write throughput topology available — publish this mapping so teams stop re-deriving consistency choices from scratch per project.
 
 ---
 
@@ -760,7 +810,9 @@ In the capstone you will justify consistency-level and replication-topology choi
 
 (See items 13-15 above, plus:)
 - Present the business case for investing in chaos-engineering-style failover/partition testing versus continuing to rely on untested failover code paths.
+  **A:** Untested failover code is, in practice, unverified — the only way to know an RTO claim is real is to actually trigger the failure in a controlled setting; the cost of periodic chaos testing is far lower than discovering a broken failover path during a genuine, uncontrolled regional outage.
 - Assess the business risk of a split-brain or duplicate-side-effect incident (per the case studies) recurring in a customer-facing financial workflow, and the mitigations currently in place.
+  **A:** A split-brain incident in a financial workflow can mean two replicas both accepting conflicting writes (double-processed payments, inconsistent balances), a direct financial and regulatory exposure; the mitigation is enforcing a single-writer topology or quorum-based leadership for any ledger-of-record data, verified by fencing tokens, not just assumed by design.
 
 ---
 

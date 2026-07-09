@@ -28,8 +28,10 @@ By the end of this chapter you will be able to:
 4. **Decompose an enterprise into the four TOGAF architecture domains** (Business, Data, Application, Technology — BDAT) and trace a single business capability through all four.
 5. **Read and produce a capability map and a reference architecture**, and explain why reusing a vetted reference architecture reduces both delivery risk and review overhead.
 6. **Write enforceable architecture principles** (not aspirational statements) with a rationale and implications, and apply them to evaluate a real design proposal.
-7. **Locate the data/AI architect role within a typical EA operating model** — which artifacts they own, which they consume, and which governance boards they answer to.
-8. **Translate EA frameworks into an Azure-concrete operating model** using the Cloud Adoption Framework and Azure Landing Zones, and defend that mapping in a staff/principal-level architecture review.
+7. **Model an architecture using ArchiMate's core elements, relationships, and viewpoints**, distinguishing it from lighter-weight notations such as C4.
+8. **Apply Team Topologies to assign a team type to every enterprise capability**, so a target-state architecture is backed by an achievable org structure.
+9. **Locate the data/AI architect role within a typical EA operating model** — which artifacts they own, which they consume, and which governance boards they answer to.
+10. **Translate EA frameworks into an Azure-concrete operating model** using the Cloud Adoption Framework and Azure Landing Zones, and defend that mapping in a staff/principal-level architecture review.
 
 ---
 
@@ -129,6 +131,22 @@ A **reference architecture** is a vetted, reusable architecture template for a r
 
 An **architecture principle**, correctly written, has three parts: a **statement** (a clear, testable rule — "Data is a shared enterprise asset, not owned by a single application"), a **rationale** (why this matters), and **implications** (what this requires in practice, including cost/effort trade-offs — "Applications must publish data through governed, discoverable interfaces rather than granting direct database access to consumers"). A principle that cannot be used to say "no" to a specific real proposal is not a principle — it is a slogan. TOGAF's illustrative principles set (e.g., "Maximize Benefit to the Enterprise," "Technology Independence," "Data is an Asset," "Data is Shared," "Common Use Applications") is a starting template, not a finished list — a real enterprise's principles must be specific enough to adjudicate an actual design review (e.g., "All new analytical workloads default to the enterprise lakehouse; a dedicated data mart requires an approved exception with a documented business justification").
 
+### 1.8 ArchiMate notation: core elements, relationships, and viewpoints
+
+TOGAF's ADM tells an architect *what process* produces BDAT artifacts; **ArchiMate** is the standardized *notation* for actually drawing those artifacts so they are tool-interoperable and diffable rather than ad hoc boxes-and-arrows. ArchiMate organizes elements into three layers that map directly onto BDAT:
+
+- **Business layer** elements: business actor, business role, business process, business service, business object — these draw the Business Architecture (e.g., a "Loan Officer" business role performing the "Assess Credit Risk" business process, which realizes a "Credit Assessment" business service).
+- **Application layer** elements: application component, application service, application interface, data object — these draw the Application and Data Architecture (e.g., the "Underwriting" application component providing an "Assess Risk" application service through an "Assess Risk API" application interface, operating on a "Credit Application" data object).
+- **Technology layer** elements: node, device, system software, technology service, artifact — these draw the Technology Architecture (e.g., an AKS "node" running "system software" (the container runtime) that hosts the "Underwriting" application component as a deployed "artifact").
+
+Relationships are equally standardized and carry specific meaning: **serving** (one element provides functionality used by another), **realization** (a more concrete element implements a more abstract one — the application service realizes the business service), **assignment** (an active element is assigned to perform a behavior — the Loan Officer role is assigned to the Assess Credit Risk process), **triggering** (one behavior initiates another), and **composition/aggregation** for structural containment. ArchiMate's **viewpoints** (e.g., the Layered Viewpoint showing all three layers stacked for one capability, or the Application Cooperation Viewpoint showing how application components interact) are pre-defined slices through the full model tailored to a specific stakeholder concern — directly implementing the "viewpoint produces a view" language from [Solution Architecture Practice](04_Solution_Architecture_Practice.md#44-views-viewpoints-and-the-c4-model), just at enterprise rather than solution scope.
+
+The practical reason this matters beyond terminology: an ArchiMate model in a tool such as Archi is a queryable graph, not a picture. An architect can ask "which application components realize the Regulatory Reporting business service" and get an authoritative answer instead of searching diagrams — this is what makes ArchiMate viable as the notation behind the Architecture Repository described in the Components section below, rather than just a prettier diagramming convention.
+
+### 1.9 Team Topologies: organizing for capability delivery
+
+A capability map and a target-state architecture are only as achievable as the organization delivering them. **Team Topologies** (Skelton and Pais) defines four team types — **stream-aligned** (owns an end-to-end flow of business value), **platform** (provides self-service capabilities to stream-aligned teams), **enabling** (temporarily helps a team acquire a missing capability), and **complicated-subsystem** (owns a component needing disproportionate specialist knowledge) — plus three interaction modes (**collaboration**, **X-as-a-Service**, and **facilitating**) that describe how those teams should interact at any given time. It matters at the enterprise-architecture level because Conway's Law means the capability map and the org chart will converge whether or not that convergence is planned: an EA program that draws a target-state capability model without also assigning each capability to a team type is implicitly betting that the current org structure can deliver it, which is often false. [Technical Strategy and Roadmaps](07_Technical_Strategy_and_Roadmaps.md#76-team-topologies-aligning-organization-to-strategy) applies this model in depth to roadmap sequencing; at the EA level, the relevant discipline is simpler: every capability in the capability map should have an identified owning team type, and every platform capability offered enterprise-wide should default to an X-as-a-Service interaction rather than ongoing collaboration once it stabilizes.
+
 ---
 
 ## Internal Working
@@ -185,7 +203,7 @@ This loop is deliberately cyclical: implementation governance and change managem
 - **Reference Architectures** — pre-vetted, reusable templates for recurring problem classes, instantiated per-project rather than re-derived.
 - **Architecture Principles** — durable, testable rules with rationale and implications, used to adjudicate design proposals without requiring case-by-case central review.
 - **Architecture Standards** — specific, mandated technology choices and configurations that implement the principles (e.g., "all PaaS databases must enable customer-managed keys").
-- **Architecture Decision Records (ADRs)** — point-in-time records of a specific significant decision, its context, alternatives considered, and consequences (detailed in the next chapter, [Architecture Decision Records](../Phase-01/03_Architecture_Decision_Records.prompt.md)).
+- **Architecture Decision Records (ADRs)** — point-in-time records of a specific significant decision, its context, alternatives considered, and consequences (detailed in the next chapter, [Architecture Decision Records](../Phase-01/03_Architecture_Decision_Records.md)).
 - **Architecture Review / Design Authority Board** — the governance body that reviews significant proposals against principles and standards, and grants or denies exceptions.
 - **Domain Architects** — Business, Data, Application, Technology (and increasingly AI/ML) architects who own and elaborate their respective BDAT domain artifacts.
 - **Enterprise Architect** — the role accountable for the coherence of the whole model across domains, chairing or feeding the review board, and maintaining the repository.
@@ -231,7 +249,7 @@ EA practice itself has modest direct compute needs — the compute-relevant deci
 
 The Technology Architecture domain owns enterprise-wide networking topology decisions that every downstream application inherits:
 
-- **Hub-and-spoke or Virtual WAN topology** standards (detailed in [Azure Networking](../Phase-03/04_Azure_Networking.prompt.md)) are set once at the EA/Landing Zone level, not re-decided per project.
+- **Hub-and-spoke or Virtual WAN topology** standards (detailed in [Azure Networking](../Phase-03/04_Azure_Networking.md)) are set once at the EA/Landing Zone level, not re-decided per project.
 - **Connectivity patterns to reference architectures** — e.g., a "batch lakehouse ingestion" reference architecture specifies whether source systems connect via private endpoint, VPN, or ExpressRoute, so each project instantiating the pattern inherits a pre-approved, pre-reviewed network design.
 - **Segmentation principles** (e.g., "production and non-production workloads reside in separate subscriptions with no direct peering") are architecture principles enforced through Azure Policy at the landing zone level, not left to individual application teams.
 
@@ -581,41 +599,55 @@ A single business capability's data flow, traced through the four BDAT domains, 
 
 ## Capstone Integration
 
-This chapter's capability map, BDAT domain decomposition, and architecture principles are the scaffolding the rest of Phase-01 builds on directly: [Architecture Governance](../Phase-01/02_Architecture_Governance.prompt.md) formalizes the review board and exception process introduced here; [Architecture Decision Records](../Phase-01/03_Architecture_Decision_Records.prompt.md) formalizes the point-in-time decision artifact only sketched here; [Domain Driven Design](../Phase-01/05_Domain_Driven_Design.prompt.md) provides the technique for decomposing a single Business Architecture capability into well-bounded software contexts; and [Business Capability Modeling](../Phase-01/06_Business_Capability_Modeling.prompt.md) returns to deepen the capability map technique introduced here. In the handbook's final capstone (Phase-20), the capability map and BDAT traceability chain built across this phase become the anchor artifact used to justify and structure the end-to-end reference platform delivered as the capstone project.
+This chapter's capability map, BDAT domain decomposition, and architecture principles are the scaffolding the rest of Phase-01 builds on directly: [Architecture Governance](../Phase-01/02_Architecture_Governance.md) formalizes the review board and exception process introduced here; [Architecture Decision Records](../Phase-01/03_Architecture_Decision_Records.md) formalizes the point-in-time decision artifact only sketched here; [Domain Driven Design](../Phase-01/05_Domain_Driven_Design.md) provides the technique for decomposing a single Business Architecture capability into well-bounded software contexts; and [Business Capability Modeling](../Phase-01/06_Business_Capability_Modeling.md) returns to deepen the capability map technique introduced here. In the handbook's final capstone (Phase-20), the capability map and BDAT traceability chain built across this phase become the anchor artifact used to justify and structure the end-to-end reference platform delivered as the capstone project.
 
 ---
 
 ## Interview Questions
 
 1. What is the difference between enterprise architecture, solution architecture, and software architecture?
+   **A:** Enterprise architecture aligns business strategy, capabilities, and technology investment across the whole organization; solution architecture designs a specific initiative or system within that enterprise context; software architecture is the internal structure (components, modules, patterns) of a single application — each is a narrower scope nested inside the one above it.
 2. Walk through TOGAF's ADM phases in order and name the primary artifact each phase produces.
+   **A:** Preliminary (governance framework and principles) → Architecture Vision (vision document, stakeholder map) → Business Architecture (business architecture description) → Information Systems Architecture (data and application architecture) → Technology Architecture (technology architecture description) → Opportunities & Solutions (implementation and migration plan) → Migration Planning (detailed migration schedule) → Implementation Governance (compliance assessments) → Architecture Change Management (change requests feeding back into Preliminary).
 3. What problem does the Zachman Framework solve that a process framework like the ADM does not?
+   **A:** Zachman is a classification taxonomy (a matrix of perspectives × abstractions — what, how, where, who, when, why) for organizing and cross-checking architecture artifacts for completeness, whereas the ADM is a sequential process for producing those artifacts; Zachman answers "have we described everything from every angle," not "what order do we do the work in."
 4. What are the four TOGAF architecture domains, and give an example artifact for each.
+   **A:** Business (a business capability map), Data (a conceptual data model), Application (an application portfolio catalog), and Technology (an infrastructure/network topology diagram) — together called the BDAT stack.
 5. What makes a business capability different from a business process or an application?
+   **A:** A capability is a stable "what the business can do" (e.g., "manage customer credit risk") independent of how it's done, while a process is a specific sequence of activities and an application is a specific system — capabilities stay stable for years while the processes and applications realizing them change frequently.
 
 ---
 
 ## Staff Engineer Questions
 
 1. How would you decide whether a proposed new microservice needs a full architecture review board pass versus a lightweight, self-service conformance check?
+   **A:** Tier the decision by blast radius and reversibility — a service touching shared data domains, crossing team boundaries, or introducing a new technology pattern warrants full ARB review, while a service following an established golden path within one team's existing bounded context can pass through an automated, self-service conformance check.
 2. A team wants to bypass the approved data-access pattern for a legitimate short-term deadline reason. How do you structure a defensible exception, and what must it include to avoid becoming permanent, unreviewed technical debt?
+   **A:** Require the exception to be logged with an explicit expiry date, the specific risk it introduces, and a committed remediation owner/date — and make the exception visible in a tracked register so it surfaces automatically for review rather than being forgotten once the deadline pressure passes.
 3. How do you keep a capability map from becoming a stale artifact within a fast-moving organization?
+   **A:** Tie capability-map reviews to a recurring governance cadence (e.g., quarterly) rather than one-time creation, and anchor updates to real organizational triggers (reorgs, M&A, new strategic bets) instead of a calendar-only review that gets skipped under delivery pressure.
 
 ---
 
 ## Architect Questions
 
 1. Design an EA operating model (roles, governance cadence, repository structure) appropriate for a 3,000-person organization with five largely autonomous business units. Justify your governance tiering.
+   **A:** Use a federated model — a small central EA team owns cross-cutting principles, shared capability taxonomy, and Tier-1 (enterprise-wide) decision governance, while each business unit has its own embedded architect owning Tier-2/3 decisions locally; this tiering avoids the central team becoming a bottleneck for autonomous units while still protecting genuinely shared concerns (data domains, security standards) from fragmentation.
 2. Given a capability map showing duplicated capability implementations across two business units after a merger, outline the analysis and stakeholder engagement plan you would run before recommending consolidation.
+   **A:** First validate whether the "duplication" is truly the same capability (same business meaning and outcome) or superficially similar but serving different regulatory/market contexts, then engage both units' business and technical stakeholders jointly to surface hidden requirements before proposing consolidation — a premature technical merge of capabilities that actually differ is a common, costly post-merger mistake.
 3. How would you adapt TOGAF's ADM for an organization practicing continuous, agile delivery without reintroducing waterfall-style delays?
+   **A:** Compress the ADM into a lightweight, iterative cycle where Business/IS/Technology architecture phases produce just-enough artifacts per increment rather than a big upfront design, and fold Architecture Change Management into the team's existing sprint/PR review cadence instead of a separate governance gate.
 
 ---
 
 ## CTO Review Questions
 
 1. How do you know our current architecture principles are actually preventing costly mistakes rather than being ignored? What evidence would convince you either way?
+   **A:** Look for concrete evidence of principles changing a real decision (an ADR citing a principle as the deciding factor, or a proposal rejected/modified because it violated one) — if no such evidence exists after searching decision logs, the principles are decorative, not operative.
 2. If we doubled our M&A activity next year, what would our current EA maturity level cost us in integration speed, and what is the highest-leverage investment to close that gap?
+   **A:** Low EA maturity (no shared capability taxonomy, no data-domain ownership clarity) turns each acquisition's integration into a bespoke, slow discovery exercise; the highest-leverage investment is usually a shared capability map and data-domain ownership model maintained *before* the next acquisition, not built reactively during it.
 3. How does our data/AI governance model connect to our broader enterprise architecture practice, and where is that connection currently weakest?
+   **A:** Data/AI governance should be a specialization of the same capability and domain-ownership model EA already maintains, not a parallel structure; the weakest link is usually that data domain ownership and AI model ownership were established independently of the existing capability map, creating duplicate, inconsistent ownership records.
 
 ---
 
@@ -641,4 +673,4 @@ This chapter's capability map, BDAT domain decomposition, and architecture princ
 - Perks, C., & Beveridge, T. (2003). *Guide to Enterprise IT Architecture.* Springer.
 - Lankhorst, M. (2017). *Enterprise Architecture at Work: Modelling, Communication and Analysis* (4th ed.). Springer. (The ArchiMate reference text.)
 - Brown, S. (2018). *Software Architecture for Developers* — the C4 model's origin, a useful lighter-weight complement to full ArchiMate for the Application Architecture domain.
-- Next chapter: [Architecture Governance](../Phase-01/02_Architecture_Governance.prompt.md) — formalizing the review board, exception process, and compliance mechanisms introduced in this chapter.
+- Next chapter: [Architecture Governance](../Phase-01/02_Architecture_Governance.md) — formalizing the review board, exception process, and compliance mechanisms introduced in this chapter.
