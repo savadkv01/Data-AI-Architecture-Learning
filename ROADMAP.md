@@ -4,7 +4,7 @@ Work top to bottom. Each item is a prompt that generates one chapter. Check item
 complete both the reading and the hands-on labs. Respect prerequisites in
 [DEPENDENCY_GRAPH.md](DEPENDENCY_GRAPH.md).
 
-**Weekly cadence target:** 8-12 focused hours. **Total prompts:** 164.
+**Weekly cadence target:** 8-12 focused hours. **Total prompts:** 165.
 
 ## Suggested pacing
 | Block | Phases | Theme |
@@ -22,57 +22,57 @@ complete both the reading and the hands-on labs. Respect prerequisites in
 
 ### Phase-00 — Foundations & Prerequisites  _( Weeks 1-3 )_
 _Rebuild the computer-science and systems bedrock every architect relies on._
-  - [✅] Phase-00/01 — Introduction and How To Use This Handbook  →  generates `Introduction.md`
-  - [✅] Phase-00/02 — Computer Science Fundamentals  →  generates `Computer_Science_Fundamentals.md`
-  - [✅] Phase-00/03 — Operating Systems for Data Engineers  →  generates `Operating_Systems.md`
-  - [✅] Phase-00/04 — Networking Fundamentals  →  generates `Networking_Fundamentals.md`
-  - [✅] Phase-00/05 — Storage Systems Fundamentals  →  generates `Storage_Systems_Fundamentals.md`
-  - [✅] Phase-00/06 — Concurrency and Parallelism  →  generates `Concurrency_and_Parallelism.md`
-  - [✅] Phase-00/07 — Data Structures and Algorithms for Data Engineering  →  generates `Data_Structures_and_Algorithms.md`
-  - [✅] Phase-00/08 — Distributed Systems Primer  →  generates `Distributed_Systems_Primer.md`
+  - [ ] Phase-00/01 — Introduction and How To Use This Handbook  →  generates `Introduction.md`
+  - [ ] Phase-00/02 — Computer Science Fundamentals  →  generates `Computer_Science_Fundamentals.md`
+  - [ ] Phase-00/03 — Operating Systems for Data Engineers  →  generates `Operating_Systems.md`
+  - [ ] Phase-00/04 — Networking Fundamentals  →  generates `Networking_Fundamentals.md`
+  - [ ] Phase-00/05 — Storage Systems Fundamentals  →  generates `Storage_Systems_Fundamentals.md`
+  - [ ] Phase-00/06 — Concurrency and Parallelism  →  generates `Concurrency_and_Parallelism.md`
+  - [ ] Phase-00/07 — Data Structures and Algorithms for Data Engineering  →  generates `Data_Structures_and_Algorithms.md`
+  - [ ] Phase-00/08 — Distributed Systems Primer  →  generates `Distributed_Systems_Primer.md`
 
 ### Phase-01 — Enterprise Architecture Foundations  _( Weeks 4-6 )_
 _Think and communicate like an enterprise architect: frameworks, governance, and decisions._
-  - [✅] Phase-01/01 — Enterprise Architecture Foundations  →  generates `Enterprise_Architecture_Foundations.md`
-  - [✅] Phase-01/02 — Architecture Governance  →  generates `Architecture_Governance.md`
-  - [✅] Phase-01/03 — Architecture Decision Records  →  generates `Architecture_Decision_Records.md`
-  - [✅] Phase-01/04 — Solution Architecture Practice  →  generates `Solution_Architecture_Practice.md`
-  - [✅] Phase-01/05 — Domain Driven Design  →  generates `Domain_Driven_Design.md`
-  - [✅] Phase-01/06 — Business Capability Modeling  →  generates `Business_Capability_Modeling.md`
-  - [✅] Phase-01/07 — Technical Strategy and Roadmaps  →  generates `Technical_Strategy_and_Roadmaps.md`
+  - [ ] Phase-01/01 — Enterprise Architecture Foundations  →  generates `Enterprise_Architecture_Foundations.md`
+  - [ ] Phase-01/02 — Architecture Governance  →  generates `Architecture_Governance.md`
+  - [ ] Phase-01/03 — Architecture Decision Records  →  generates `Architecture_Decision_Records.md`
+  - [ ] Phase-01/04 — Solution Architecture Practice  →  generates `Solution_Architecture_Practice.md`
+  - [ ] Phase-01/05 — Domain Driven Design  →  generates `Domain_Driven_Design.md`
+  - [ ] Phase-01/06 — Business Capability Modeling  →  generates `Business_Capability_Modeling.md`
+  - [ ] Phase-01/07 — Technical Strategy and Roadmaps  →  generates `Technical_Strategy_and_Roadmaps.md`
 
 ### Phase-02 — Distributed Systems Deep Dive  _( Weeks 7-10 )_
 _Master the theory and practice that underpins every scalable data platform._
-  - [✅] Phase-02/01 — Consensus and Coordination  →  generates `Consensus_and_Coordination.md`
-  - [✅] Phase-02/02 — Replication and Consistency  →  generates `Replication_and_Consistency.md`
-  - [✅] Phase-02/03 — Partitioning and Sharding  →  generates `Partitioning_and_Sharding.md`
-  - [✅] Phase-02/04 — CAP and PACELC  →  generates `CAP_and_PACELC.md`
-  - [✅] Phase-02/05 — Distributed Transactions  →  generates `Distributed_Transactions.md`
-  - [✅] Phase-02/06 — Time, Clocks and Ordering  →  generates `Time_Clocks_and_Ordering.md`
-  - [✅] Phase-02/07 — Fault Tolerance and Resilience  →  generates `Fault_Tolerance_and_Resilience.md`
-  - [✅] Phase-02/08 — Distributed Systems Case Studies  →  generates `Distributed_Systems_Case_Studies.md`
+  - [ ] Phase-02/01 — Consensus and Coordination  →  generates `Consensus_and_Coordination.md`
+  - [ ] Phase-02/02 — Replication and Consistency  →  generates `Replication_and_Consistency.md`
+  - [ ] Phase-02/03 — Partitioning and Sharding  →  generates `Partitioning_and_Sharding.md`
+  - [ ] Phase-02/04 — CAP and PACELC  →  generates `CAP_and_PACELC.md`
+  - [ ] Phase-02/05 — Distributed Transactions  →  generates `Distributed_Transactions.md`
+  - [ ] Phase-02/06 — Time, Clocks and Ordering  →  generates `Time_Clocks_and_Ordering.md`
+  - [ ] Phase-02/07 — Fault Tolerance and Resilience  →  generates `Fault_Tolerance_and_Resilience.md`
+  - [ ] Phase-02/08 — Distributed Systems Case Studies  →  generates `Distributed_Systems_Case_Studies.md`
 
 ### Phase-03 — Cloud & Azure Architecture  _( Weeks 11-14 )_
 _Design secure, scalable cloud foundations with Azure as the primary platform._
-  - [✅] Phase-03/01 — Cloud Architecture Fundamentals  →  generates `Cloud_Architecture_Fundamentals.md`
-  - [✅] Phase-03/02 — Azure Core Architecture  →  generates `Azure_Core_Architecture.md`
-  - [✅] Phase-03/03 — Azure Landing Zones  →  generates `Azure_Landing_Zones.md`
-  - [✅] Phase-03/04 — Azure Networking  →  generates `Azure_Networking.md`
-  - [✅] Phase-03/05 — Azure Compute and Containers  →  generates `Azure_Compute_and_Containers.md`
-  - [✅] Phase-03/06 — Azure Storage Services  →  generates `Azure_Storage_Services.md`
-  - [✅] Phase-03/07 — Azure Well-Architected Framework  →  generates `Well_Architected_Framework.md`
-  - [✅] Phase-03/08 — Multi-Cloud and Hybrid Architecture  →  generates `Multi_Cloud_and_Hybrid.md`
+  - [ ] Phase-03/01 — Cloud Architecture Fundamentals  →  generates `Cloud_Architecture_Fundamentals.md`
+  - [ ] Phase-03/02 — Azure Core Architecture  →  generates `Azure_Core_Architecture.md`
+  - [ ] Phase-03/03 — Azure Landing Zones  →  generates `Azure_Landing_Zones.md`
+  - [ ] Phase-03/04 — Azure Networking  →  generates `Azure_Networking.md`
+  - [ ] Phase-03/05 — Azure Compute and Containers  →  generates `Azure_Compute_and_Containers.md`
+  - [ ] Phase-03/06 — Azure Storage Services  →  generates `Azure_Storage_Services.md`
+  - [ ] Phase-03/07 — Azure Well-Architected Framework  →  generates `Well_Architected_Framework.md`
+  - [ ] Phase-03/08 — Multi-Cloud and Hybrid Architecture  →  generates `Multi_Cloud_and_Hybrid.md`
 
 ### Phase-04 — Storage Systems & Table Formats  _( Weeks 15-17 )_
 _Understand file formats and open table formats that define the lakehouse._
-  - [✅] Phase-04/01 — File Formats: Parquet, ORC, Avro  →  generates `File_Formats.md`
-  - [✅] Phase-04/02 — Columnar Storage Internals  →  generates `Columnar_Storage_Internals.md`
-  - [✅] Phase-04/03 — Object Storage and Data Lakes  →  generates `Object_Storage_and_Data_Lakes.md`
-  - [✅] Phase-04/04 — Delta Lake  →  generates `Delta_Lake.md`
-  - [✅] Phase-04/05 — Apache Iceberg  →  generates `Apache_Iceberg.md`
-  - [✅] Phase-04/06 — Apache Hudi  →  generates `Apache_Hudi.md`
-  - [✅] Phase-04/07 — Table Format Comparison and Selection  →  generates `Table_Format_Comparison.md`
-  - [✅] Phase-04/08 — Compression and Encoding Strategies  →  generates `Compression_and_Encoding.md`
+  - [ ] Phase-04/01 — File Formats: Parquet, ORC, Avro  →  generates `File_Formats.md`
+  - [ ] Phase-04/02 — Columnar Storage Internals  →  generates `Columnar_Storage_Internals.md`
+  - [ ] Phase-04/03 — Object Storage and Data Lakes  →  generates `Object_Storage_and_Data_Lakes.md`
+  - [ ] Phase-04/04 — Delta Lake  →  generates `Delta_Lake.md`
+  - [ ] Phase-04/05 — Apache Iceberg  →  generates `Apache_Iceberg.md`
+  - [ ] Phase-04/06 — Apache Hudi  →  generates `Apache_Hudi.md`
+  - [ ] Phase-04/07 — Table Format Comparison and Selection  →  generates `Table_Format_Comparison.md`
+  - [ ] Phase-04/08 — Compression and Encoding Strategies  →  generates `Compression_and_Encoding.md`
 
 ### Phase-05 — Modern Data Engineering & Lakehouse  _( Weeks 18-22 )_
 _Build the lakehouse and batch platforms at the heart of modern data engineering._
@@ -95,6 +95,7 @@ _Model data for analytics at scale with dimensional, vault, and semantic techniq
   - [ ] Phase-06/05 — Slowly Changing Dimensions  →  generates `Slowly_Changing_Dimensions.md`
   - [ ] Phase-06/06 — Semantic Layer and Metrics  →  generates `Semantic_Layer_and_Metrics.md`
   - [ ] Phase-06/07 — Data Warehouse Architecture  →  generates `Data_Warehouse_Architecture.md`
+  - [ ] Phase-06/08 — SQL Server and Azure SQL  →  generates `SQL_Server_and_Azure_SQL.md`
 
 ### Phase-07 — Streaming & Real-Time Analytics  _( Weeks 26-29 )_
 _Design low-latency streaming and real-time analytics systems._

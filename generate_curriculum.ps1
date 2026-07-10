@@ -368,7 +368,10 @@ $phases = @(
        Prereq='Depends on Phase-06/[OLAP and Cubes](04_OLAP_and_Cubes.prompt.md).'; Focus=@('Headless BI and metric stores','Consistent metric definitions','dbt Semantic Layer / MetricFlow','Power BI semantic models','Governance of metrics') },
     @{ N='07'; Title='Data Warehouse Architecture'; Md='Data_Warehouse_Architecture.md'; Study='60 min + 3h';
        Desc='End-to-end warehouse architecture, MPP internals, and workload management.';
-       Prereq='Depends on Phase-06/[Dimensional Modeling](01_Dimensional_Modeling.prompt.md) and Phase-06/[Data Vault](02_Data_Vault.prompt.md).'; Focus=@('MPP distribution and shuffle','Synapse/Snowflake/BigQuery internals','Workload isolation and concurrency','Materialized views and result caching','Warehouse vs lakehouse convergence') }
+       Prereq='Depends on Phase-06/[Dimensional Modeling](01_Dimensional_Modeling.prompt.md) and Phase-06/[Data Vault](02_Data_Vault.prompt.md).'; Focus=@('MPP distribution and shuffle','Synapse/Snowflake/BigQuery internals','Workload isolation and concurrency','Materialized views and result caching','Warehouse vs lakehouse convergence') },
+    @{ N='08'; Title='SQL Server and Azure SQL'; Md='SQL_Server_and_Azure_SQL.md'; Study='75 min + 5h';
+       Desc='SQL Server and Azure SQL engine internals, T-SQL, indexing, and performance.';
+       Prereq='Depends on Phase-06/[Normalization and OLTP Modeling](03_Normalization_and_OLTP_Modeling.prompt.md) and Phase-06/[Data Warehouse Architecture](07_Data_Warehouse_Architecture.prompt.md).'; Focus=@('Storage engine internals: pages, buffer pool, transaction log','Query optimizer, execution plans, and cardinality estimation','Indexing strategy: clustered, nonclustered, columnstore','Concurrency, isolation levels, and deadlock analysis','Azure SQL deployment models: Hyperscale, Managed Instance, HA/DR') }
   )},
 
   @{ Id='Phase-07'; Title='Streaming & Real-Time Analytics'; Weeks='Weeks 26-29';

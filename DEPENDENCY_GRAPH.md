@@ -101,6 +101,7 @@ graph TD
 | Phase-06/05_Slowly_Changing_Dimensions | Depends on Phase-06/[Dimensional Modeling](01_Dimensional_Modeling.prompt.md). |
 | Phase-06/06_Semantic_Layer_and_Metrics | Depends on Phase-06/[OLAP and Cubes](04_OLAP_and_Cubes.prompt.md). |
 | Phase-06/07_Data_Warehouse_Architecture | Depends on Phase-06/[Dimensional Modeling](01_Dimensional_Modeling.prompt.md) and Phase-06/[Data Vault](02_Data_Vault.prompt.md). |
+| Phase-06/08_SQL_Server_and_Azure_SQL | Depends on Phase-06/[Normalization and OLTP Modeling](03_Normalization_and_OLTP_Modeling.prompt.md) and Phase-06/[Data Warehouse Architecture](07_Data_Warehouse_Architecture.prompt.md). |
 | Phase-07/01_Streaming_Fundamentals | Depends on Phase-02/[Time, Clocks and Ordering](../Phase-02/06_Time_Clocks_and_Ordering.prompt.md). |
 | Phase-07/02_Apache_Kafka | Depends on Phase-07/[Streaming Fundamentals](01_Streaming_Fundamentals.prompt.md) and Phase-02/[Replication and Consistency](../Phase-02/02_Replication_and_Consistency.prompt.md). |
 | Phase-07/03_Azure_Event_Hubs_and_Stream_Analytics | Depends on Phase-07/[Apache Kafka](02_Apache_Kafka.prompt.md). |

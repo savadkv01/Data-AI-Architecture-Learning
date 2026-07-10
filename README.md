@@ -33,7 +33,7 @@ Learning-Curriculum/
 ```
 
 ## Curriculum at a glance
-- **21 phases**, **164 prompt files** total (149 phased + 15 resources).
+- **21 phases**, **165 prompt files** total (150 phased + 15 resources).
 - Targets **~1 year** of intensive study (see [ROADMAP.md](ROADMAP.md)).
 
 | Phase | Focus | Chapters | Timeline |
@@ -44,7 +44,7 @@ Learning-Curriculum/
 | **Phase-03** | Cloud & Azure Architecture | 8 | Weeks 11-14 |
 | **Phase-04** | Storage Systems & Table Formats | 8 | Weeks 15-17 |
 | **Phase-05** | Modern Data Engineering & Lakehouse | 9 | Weeks 18-22 |
-| **Phase-06** | Data Modeling & Warehousing | 7 | Weeks 23-25 |
+| **Phase-06** | Data Modeling & Warehousing | 8 | Weeks 23-25 |
 | **Phase-07** | Streaming & Real-Time Analytics | 8 | Weeks 26-29 |
 | **Phase-08** | Data Governance & Quality | 7 | Weeks 30-32 |
 | **Phase-09** | DataOps, Platform Engineering & DevOps | 8 | Weeks 33-37 |

@@ -16,6 +16,7 @@ chapter with all 50 mandatory sections (Azure-primary, ~60/30/10 Azure/OSS/AWS+G
 | 05 | [Slowly Changing Dimensions](05_Slowly_Changing_Dimensions.prompt.md) | `Slowly_Changing_Dimensions.md` | 45 min + 3h |
 | 06 | [Semantic Layer and Metrics](06_Semantic_Layer_and_Metrics.prompt.md) | `Semantic_Layer_and_Metrics.md` | 60 min + 3h |
 | 07 | [Data Warehouse Architecture](07_Data_Warehouse_Architecture.prompt.md) | `Data_Warehouse_Architecture.md` | 60 min + 3h |
+| 08 | [SQL Server and Azure SQL](08_SQL_Server_and_Azure_SQL.prompt.md) | `SQL_Server_and_Azure_SQL.md` | 75 min + 5h |
 
 ## How to run
 Open a prompt file in VS Code and run it with GitHub Copilot (agent mode), or reference it
